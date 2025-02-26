@@ -1,2 +1,3 @@
-/dataset_builder.py
-/requirements-ai-env.txt
+dataset
+requirements-ai-env.txt
+.env
