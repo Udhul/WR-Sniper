@@ -24,6 +24,18 @@ def setup_logging(log_dir: Union[str, Path]):
     log_dir = Path(log_dir)
     log_dir.mkdir(exist_ok=True, parents=True)
     
+    # Get list of existing log files
+    existing_logs = list(log_dir.glob("pdf_processing_*.log"))
+    
+    # Sort by creation/modification time (oldest first)
+    existing_logs.sort(key=lambda f: f.stat().st_mtime)
+    
+    # Remove oldest logs if we have 5 or more
+    max_logs = 5
+    while len(existing_logs) >= max_logs:
+        oldest_log = existing_logs.pop(0)
+        oldest_log.unlink()  # Delete the file
+        
     log_file = log_dir / f"pdf_processing_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     
     logging.basicConfig(
