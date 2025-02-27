@@ -54,16 +54,18 @@ class PDFConverter:
     Extracts text by line.
     """
     
-    def __init__(self, output_dir: Union[str, Path] = None):
+    def __init__(self, output_dir: Union[str, Path] = None, overwrite: bool = False):
         """
         Initialize the PDF converter.
         
         Args:
             output_dir: Optional directory where JSON files will be saved.
                         If None, JSONs won't be automatically saved.
+            overwrite: Whether to overwrite existing JSON files (default: False)
         """
         self.output_dir = Path(output_dir) if output_dir else None
         self.include_positions = True # For now, let's always include positions
+        self.overwrite = overwrite
         
         if self.output_dir:
             self.output_dir.mkdir(exist_ok=True, parents=True)
@@ -204,7 +206,7 @@ class PDFConverter:
         
         return json_path
     
-    def process_file(self, pdf_path: Path, base_dir: Path = None, save: bool = True) -> Dict:
+    def process_file(self, pdf_path: Path, base_dir: Path = None, save: bool = True) -> Optional[Dict]:
         """
         Process a single PDF file and convert to JSON.
         
@@ -214,9 +216,18 @@ class PDFConverter:
             save: Whether to save the JSON file
             
         Returns:
-            The JSON data as a dictionary
+            The JSON data as a dictionary or None if skipped
         """
         logger.info(f"Processing PDF file: {pdf_path}")
+        
+        # Check if output file already exists
+        if save and self.output_dir:
+            file_id = pdf_path.stem
+            json_path = self.output_dir / f"{file_id}.json"
+            
+            if json_path.exists() and not self.overwrite:
+                logger.info(f"Skipping {pdf_path} - output file {json_path} already exists")
+                return None
         
         try:
             # Convert PDF to JSON
@@ -235,9 +246,9 @@ class PDFConverter:
             raise
     
     def process_directory(self, 
-                          pdf_dir: Union[str, Path], 
-                          recursive: bool = True, 
-                          limit: Optional[int] = None) -> List[Tuple[Path, bool]]:
+                        pdf_dir: Union[str, Path], 
+                        recursive: bool = True, 
+                        limit: Optional[int] = None) -> List[Tuple[Path, str]]:
         """
         Process all PDF files in a directory.
         
@@ -262,16 +273,24 @@ class PDFConverter:
         
         # Process each file
         results = []
+        skipped = 0
         for pdf_path in tqdm(pdf_files, desc="Converting PDFs to JSON"):
             try:
-                self.process_file(pdf_path, base_dir=pdf_dir)
-                results.append((pdf_path, True))
+                result = self.process_file(pdf_path, base_dir=pdf_dir)
+                if result is None:  # File was skipped
+                    skipped += 1
+                    results.append((pdf_path, "skipped"))
+                else:
+                    results.append((pdf_path, "success"))
             except Exception:
-                results.append((pdf_path, False))
+                results.append((pdf_path, "failed"))
         
         # Summarize results
-        successful = [r for r in results if r[1]]
+        successful = [r for r in results if r[1] == "success"]
+        failed = [r for r in results if r[1] == "failed"]
+        
         logger.info(f"Successfully processed {len(successful)} out of {len(results)} PDF files")
+        logger.info(f"Failed: {len(failed)}, Skipped (already exist): {skipped}")
         
         return results
 
@@ -285,8 +304,9 @@ def main():
     parser.add_argument("--input", "-i", help="Input PDF file or directory (default: {base-dir}/pdf)")
     parser.add_argument("--output", "-o", help="Output directory for JSON files (default: {base-dir}/converted)")
     parser.add_argument("--log-dir", help="Directory for log files (default: {base-dir}/log)")
-    parser.add_argument("--recursive", "-r", action="store_true", help="Recursively process directories")
+    parser.add_argument("--recursive", "-r", action="store_true", default=False, help="Recursively process directories")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of files to process")
+    parser.add_argument("--overwrite", "--replace", action="store_true", default=False, help="Overwrite existing JSON files")
     
     args = parser.parse_args()
     
@@ -306,19 +326,24 @@ def main():
     logger.info(f"Input path: {input_path}")
     logger.info(f"Output directory: {output_dir}")
     logger.info(f"Log directory: {log_dir}")
+    logger.info(f"Overwrite existing files: {args.overwrite}")
     
     # Create converter and process files
-    converter = PDFConverter(output_dir=output_dir)
+    converter = PDFConverter(output_dir=output_dir, overwrite=args.overwrite)
     
+    # Process single file
     if input_path.is_file():
         # Process single file
         if input_path.suffix.lower() != '.pdf':
             logger.error(f"Error: {input_path} is not a PDF file")
             return
-        
-        converter.process_file(input_path)
-        logger.info(f"Processed 1 PDF file. Output saved to {output_dir}")
-    
+        try:
+            converter.process_file(input_path)
+            logger.info(f"Processed 1 PDF file. Output saved to {output_dir}")
+        except Exception as e:
+            logger.error(f"Error processing {input_path}: {e}")
+
+    # Process directory of files
     elif input_path.is_dir():
         # Process directory
         results = converter.process_directory(
