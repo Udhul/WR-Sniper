@@ -300,18 +300,34 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Convert PDF files to structured JSON format")
-    parser.add_argument("--base-dir", "-d", help="Base dataset directory", default="dataset")
+    parser.add_argument("path", nargs="?", help="Path to a PDF file or a directory. If directory, interpreted as base-dir if --base-dir is not set, otherwise as input directory")
+    parser.add_argument("--base-dir", "-d", help="Base dataset directory (default: 'dataset')")
     parser.add_argument("--input", "-i", help="Input PDF file or directory (default: {base-dir}/pdf)")
     parser.add_argument("--output", "-o", help="Output directory for JSON files (default: {base-dir}/converted)")
     parser.add_argument("--log-dir", help="Directory for log files (default: {base-dir}/log)")
-    parser.add_argument("--recursive", "-r", action="store_true", default=False, help="Recursively process directories")
+    parser.add_argument("--recursive", "-r", action="store_true", help="Recursively process directories")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of files to process")
-    parser.add_argument("--overwrite", "--replace", action="store_true", default=False, help="Overwrite existing JSON files")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing JSON files")
     
     args = parser.parse_args()
     
+    # Handle the unnamed argument logic
+    if args.path:
+        path = Path(args.path)
+        
+        if path.is_file() and path.suffix.lower() == '.pdf':
+            # If path is a PDF file, always use it as input file
+            args.input = str(path)
+        elif path.is_dir():
+            # If path is a directory and base-dir is not set, use as base-dir
+            if not args.base_dir:
+                args.base_dir = str(path)
+            # Otherwise, use as input directory
+            else:
+                args.input = str(path)
+    
     # Set up directory structure
-    base_dir = Path(args.base_dir)
+    base_dir = Path(args.base_dir) if args.base_dir else Path("dataset")
     
     # Define default paths if not specified
     input_path = Path(args.input) if args.input else base_dir / "pdf"
