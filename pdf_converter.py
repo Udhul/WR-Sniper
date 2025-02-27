@@ -14,16 +14,27 @@ import logging
 import fitz  # PyMuPDF for text extraction
 from tqdm import tqdm
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("pdf_processing.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger("PDFConverter")
+def setup_logging(log_dir: Union[str, Path]):
+    """
+    Configure logging to file and console.
+    
+    Args:
+        log_dir: Directory where log files will be saved
+    """
+    log_dir = Path(log_dir)
+    log_dir.mkdir(exist_ok=True, parents=True)
+    
+    log_file = log_dir / f"pdf_processing_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger("PDFConverter")
 
 class PDFConverter:
     """
@@ -31,22 +42,21 @@ class PDFConverter:
     Extracts text by line.
     """
     
-    def __init__(self, output_dir: Union[str, Path] = None, include_positions: bool = False):
+    def __init__(self, output_dir: Union[str, Path] = None):
         """
         Initialize the PDF converter.
         
         Args:
             output_dir: Optional directory where JSON files will be saved.
                         If None, JSONs won't be automatically saved.
-            include_positions: Whether to include position coordinates for text blocks
         """
         self.output_dir = Path(output_dir) if output_dir else None
-        self.include_positions = include_positions
+        self.include_positions = True # For now, let's always include positions
         
         if self.output_dir:
             self.output_dir.mkdir(exist_ok=True, parents=True)
     
-    def extract_text_from_pdf(self, pdf_path: Path) -> List[Dict]:
+    def extract_text_from_pdf(self, pdf_path: Path) -> Tuple[List[Dict], str]:
         """
         Extract text content from PDF, preserving line breaks.
         
@@ -55,8 +65,11 @@ class PDFConverter:
             
         Returns:
             List of dictionaries containing text lines and their positions
+            String containing all the raw text in the pdf file, concatenated using newline character '\n'.
         """
-        text_blocks = []
+        document_lines: List[Dict] = []
+        document_raw_text: str = ""
+
         try:
             # Open the PDF with PyMuPDF
             doc = fitz.open(str(pdf_path))
@@ -74,7 +87,7 @@ class PDFConverter:
                     line = line.strip()
                     if line:  # Skip empty lines
                         # Create the text block
-                        text_block = {
+                        text_line = {
                             "page": page_num + 1,
                             "line_num": line_num + 1,
                             "text": line
@@ -92,16 +105,17 @@ class PDFConverter:
                                         break
                             
                             if position:
-                                text_block["position"] = position
+                                text_line["position"] = position
                         
-                        text_blocks.append(text_block)
+                        document_lines.append(text_line)
+                document_raw_text += text + "\n"
             
             doc.close()
-            logger.info(f"Extracted {len(text_blocks)} text lines from {pdf_path}")
+            logger.info(f"Extracted {len(document_lines)} text lines from {pdf_path}")
         except Exception as e:
             logger.error(f"Error extracting text from {pdf_path}: {e}")
         
-        return text_blocks
+        return document_lines, document_raw_text
     
     def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
         """
@@ -129,7 +143,7 @@ class PDFConverter:
                 file_path = str(pdf_path)
             
             # Extract text content with line breaks preserved
-            text_blocks = self.extract_text_from_pdf(pdf_path)
+            document_lines, document_raw_text = self.extract_text_from_pdf(pdf_path)
             
             # Create JSON structure
             json_data = {
@@ -138,11 +152,12 @@ class PDFConverter:
                     "file_path": file_path,
                     "file_hash": file_hash,
                     "processed_date": datetime.datetime.now().isoformat(),
-                    "page_count": len(set(block["page"] for block in text_blocks)) if text_blocks else 0,
+                    "page_count": len(set(block["page"] for block in document_lines)) if document_lines else 0,
                     "include_positions": self.include_positions
                 },
                 "content": {
-                    "text_blocks": text_blocks
+                    "lines": document_lines,
+                    "raw": document_raw_text
                 },
                 "annotations": {
                     "labeled": False,
@@ -254,26 +269,43 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Convert PDF files to structured JSON format")
-    parser.add_argument("input", help="Input PDF file or directory")
-    parser.add_argument("--output", "-o", help="Output directory for JSON files", default="pdf_json_output")
+    parser.add_argument("--base-dir", "-d", help="Base dataset directory", default="dataset")
+    parser.add_argument("--input", "-i", help="Input PDF file or directory (default: {base-dir}/pdf)")
+    parser.add_argument("--output", "-o", help="Output directory for JSON files (default: {base-dir}/converted)")
+    parser.add_argument("--log-dir", help="Directory for log files (default: {base-dir}/log)")
     parser.add_argument("--recursive", "-r", action="store_true", help="Recursively process directories")
     parser.add_argument("--limit", "-l", type=int, help="Limit number of files to process")
-    parser.add_argument("--include-positions", "-p", action="store_true", 
-                        help="Include position coordinates for text blocks (default: False)")
     
     args = parser.parse_args()
     
-    converter = PDFConverter(output_dir=args.output, include_positions=args.include_positions)
-    input_path = Path(args.input)
+    # Set up directory structure
+    base_dir = Path(args.base_dir)
+    
+    # Define default paths if not specified
+    input_path = Path(args.input) if args.input else base_dir / "pdf"
+    output_dir = Path(args.output) if args.output else base_dir / "converted"
+    log_dir = Path(args.log_dir) if args.log_dir else base_dir / "log"
+    
+    # Set up logging
+    global logger
+    logger = setup_logging(log_dir)
+    
+    logger.info(f"Base directory: {base_dir}")
+    logger.info(f"Input path: {input_path}")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Log directory: {log_dir}")
+    
+    # Create converter and process files
+    converter = PDFConverter(output_dir=output_dir)
     
     if input_path.is_file():
         # Process single file
         if input_path.suffix.lower() != '.pdf':
-            print(f"Error: {input_path} is not a PDF file")
+            logger.error(f"Error: {input_path} is not a PDF file")
             return
         
         converter.process_file(input_path)
-        print(f"Processed 1 PDF file. Output saved to {args.output}")
+        logger.info(f"Processed 1 PDF file. Output saved to {output_dir}")
     
     elif input_path.is_dir():
         # Process directory
@@ -284,11 +316,13 @@ def main():
         )
         
         success_count = sum(1 for _, success in results if success)
-        print(f"Processed {len(results)} PDF files ({success_count} successful)")
-        print(f"Output saved to {args.output}")
+        logger.info(f"Processed {len(results)} PDF files ({success_count} successful)")
+        logger.info(f"Output saved to {output_dir}")
     
     else:
-        print(f"Error: {input_path} does not exist")
+        logger.error(f"Error: {input_path} does not exist")
+        print(f"Creating input directory: {input_path}")
+        input_path.mkdir(parents=True, exist_ok=True)
 
 
 if __name__ == "__main__":
