@@ -333,7 +333,6 @@ def main():
     
     # Process single file
     if input_path.is_file():
-        # Process single file
         if input_path.suffix.lower() != '.pdf':
             logger.error(f"Error: {input_path} is not a PDF file")
             return
@@ -345,15 +344,15 @@ def main():
 
     # Process directory of files
     elif input_path.is_dir():
-        # Process directory
         results = converter.process_directory(
             input_path, 
             recursive=args.recursive, 
             limit=args.limit
         )
         
-        success_count = sum(1 for _, success in results if success)
-        logger.info(f"Processed {len(results)} PDF files ({success_count} successful)")
+        success_count = sum(1 for _, status in results if status == "success")
+        skipped_count = sum(1 for _, status in results if status == "skipped")
+        logger.info(f"Processed {len(results)} PDF files ({success_count} successful, {skipped_count} skipped)")
         logger.info(f"Output saved to {output_dir}")
     
     else:
