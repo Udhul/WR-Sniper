@@ -294,6 +294,62 @@ class PDFConverter:
         
         return results
 
+def detect_files_to_process(base_dir: Path, input_path: Path, recursive: bool = False) -> List[Path]:
+    """
+    Detect the set of PDF files to process based on the base directory and input path.
+    
+    Args:
+        base_dir: Base directory which may contain PDF files
+        input_path: Specified input path (file or directory)
+        recursive: Whether to search subdirectories of input_path
+    
+    Returns:
+        List of PDF file paths to process (with duplicates removed)
+    """
+    pdf_files = []
+    
+    # Case 1: Input path is a specific PDF file
+    if input_path.is_file():
+        if input_path.suffix.lower() == '.pdf':
+            return [input_path]
+        else:
+            logger.error(f"Error: {input_path} is not a PDF file")
+            return []
+    
+    # Track processed files to avoid duplicates
+    processed_files = set()
+    
+    # Case 2: Process PDFs in base_dir (only if it exists and input_path is not the same as base_dir)
+    if base_dir.exists() and base_dir != input_path:
+        logger.info(f"Looking for PDF files in base directory: {base_dir}")
+        base_pdf_files = [f for f in base_dir.glob("*.pdf") if f.is_file()]
+        
+        if base_pdf_files:
+            logger.info(f"Found {len(base_pdf_files)} PDF files in base directory")
+            pdf_files.extend(base_pdf_files)
+            processed_files.update(base_pdf_files)
+    
+    # Case 3: Process PDFs in input directory (if it exists and is a directory)
+    if input_path.exists() and input_path.is_dir():
+        logger.info(f"Looking for PDF files in input directory: {input_path}")
+        
+        # Find all PDF files in the input directory
+        pattern = "**/*.pdf" if recursive else "*.pdf"
+        input_pdf_files = list(input_path.glob(pattern))
+        
+        if input_pdf_files:
+            logger.info(f"Found {len(input_pdf_files)} PDF files in input directory")
+            
+            # Add only files that haven't been processed yet
+            new_files = [f for f in input_pdf_files if f not in processed_files]
+            pdf_files.extend(new_files)
+    
+    elif not input_path.exists():
+        logger.error(f"Error: {input_path} does not exist")
+        print(f"Creating input directory: {input_path}")
+        input_path.mkdir(parents=True, exist_ok=True)
+    
+    return pdf_files
 
 def main():
     """Main entry point for the CLI"""
@@ -347,35 +403,41 @@ def main():
     # Create converter and process files
     converter = PDFConverter(output_dir=output_dir, overwrite=args.overwrite)
     
-    # Process single file
-    if input_path.is_file():
-        if input_path.suffix.lower() != '.pdf':
-            logger.error(f"Error: {input_path} is not a PDF file")
-            return
-        try:
-            converter.process_file(input_path)
-            logger.info(f"Processed 1 PDF file. Output saved to {output_dir}")
-        except Exception as e:
-            logger.error(f"Error processing {input_path}: {e}")
-
-    # Process directory of files
-    elif input_path.is_dir():
-        results = converter.process_directory(
-            input_path, 
-            recursive=args.recursive, 
-            limit=args.limit
-        )
-        
-        success_count = sum(1 for _, status in results if status == "success")
-        skipped_count = sum(1 for _, status in results if status == "skipped")
-        logger.info(f"Processed {len(results)} PDF files ({success_count} successful, {skipped_count} skipped)")
-        logger.info(f"Output saved to {output_dir}")
+    # Detect files to process
+    pdf_files_to_process = detect_files_to_process(base_dir, input_path, args.recursive)
     
-    else:
-        logger.error(f"Error: {input_path} does not exist")
-        print(f"Creating input directory: {input_path}")
-        input_path.mkdir(parents=True, exist_ok=True)
-
+    # Apply limit if specified
+    if args.limit and len(pdf_files_to_process) > args.limit:
+        logger.info(f"Limiting to {args.limit} files (out of {len(pdf_files_to_process)} detected)")
+        pdf_files_to_process = pdf_files_to_process[:args.limit]
+    
+    if not pdf_files_to_process:
+        logger.info("No PDF files found to process")
+        return
+    
+    # Process files
+    results = []
+    for pdf_path in tqdm(pdf_files_to_process, desc="Converting PDFs to JSON"):
+        try:
+            result = converter.process_file(pdf_path, base_dir=base_dir)
+            status = "skipped" if result is None else "success"
+            results.append((pdf_path, status))
+        except Exception as e:
+            logger.error(f"Failed to process {pdf_path}: {e}")
+            results.append((pdf_path, "failed"))
+    
+    # Summarize results
+    success_count = sum(1 for _, status in results if status == "success")
+    skipped_count = sum(1 for _, status in results if status == "skipped")
+    failed_count = sum(1 for _, status in results if status == "failed")
+    
+    logger.info(f"Processed {len(results)} PDF files in total:")
+    logger.info(f"  - Successfully converted: {success_count}")
+    logger.info(f"  - Skipped (already exist): {skipped_count}")
+    logger.info(f"  - Failed: {failed_count}")
+    
+    if success_count > 0:
+        logger.info(f"Output saved to {output_dir}")
 
 if __name__ == "__main__":
     main()
