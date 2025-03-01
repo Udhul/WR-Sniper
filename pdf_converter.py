@@ -1,8 +1,24 @@
 """
 PDF to JSON Converter Module
 
-This module handles the conversion of PDF files to structured JSON format,
-preserving text line structure.
+This module converts PDF documents to structured JSON format for annotation and analysis.
+It preserves text line structure, positions, and raw content while handling batch processing.
+
+Key features:
+- Extract text content from PDFs with position data
+- Convert individual files or recursively process directories
+- Skip files with reserved names (e.g., 'index', 'config')
+- Configurable output locations and overwrite behavior
+- Comprehensive logging of processing activities
+
+Usage:
+    - As a CLI tool: `python pdf_converter.py [path] [options]`
+    - As a library: Import PDFConverter class and use process_file/process_directory
+
+The output JSON contains:
+- metadata: file information and processing details
+- content: structured text lines with position data and raw text
+- annotations: placeholder for future labeling
 """
 
 import json
