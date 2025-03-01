@@ -14,6 +14,9 @@ import logging
 import fitz  # PyMuPDF for text extraction
 from tqdm import tqdm
 
+# File names which overlap with system files in the destination folder
+DISALLOWED_FILE_NAMES = ["index", "config", "db", "log", "error", "temp", "backup", "label", "labels", "json"]
+
 def setup_logging(log_dir: Union[str, Path]):
     """
     Configure logging to file and console.
@@ -311,6 +314,10 @@ def detect_files_to_process(base_dir: Path, input_path: Path, recursive: bool = 
     # Case 1: Input path is a specific PDF file
     if input_path.is_file():
         if input_path.suffix.lower() == '.pdf':
+            if input_path.stem.lower() in DISALLOWED_FILE_NAMES:
+                logger.error(f"Error: '{input_path.stem}.pdf' uses a reserved filename. Please rename this file.")
+                print(f"ERROR: '{input_path.stem}.pdf' uses a reserved filename. Please rename this file to continue.")
+                return []
             return [input_path]
         else:
             logger.error(f"Error: {input_path} is not a PDF file")
@@ -324,6 +331,14 @@ def detect_files_to_process(base_dir: Path, input_path: Path, recursive: bool = 
         logger.info(f"Looking for PDF files in base directory: {base_dir}")
         base_pdf_files = [f for f in base_dir.glob("*.pdf") if f.is_file()]
         
+        # Filter out files with disallowed names
+        disallowed_files = [f for f in base_pdf_files if f.stem.lower() in DISALLOWED_FILE_NAMES]
+        for f in disallowed_files:
+            logger.error(f"Skipping '{f.name}' - filename '{f.stem}' is reserved for system files. Please rename the file.")
+            print(f"ERROR: '{f.name}' uses a reserved filename. Please rename this file to continue.")
+        
+        base_pdf_files = [f for f in base_pdf_files if f.stem.lower() not in DISALLOWED_FILE_NAMES]
+        
         if base_pdf_files:
             logger.info(f"Found {len(base_pdf_files)} PDF files in base directory")
             pdf_files.extend(base_pdf_files)
@@ -336,6 +351,14 @@ def detect_files_to_process(base_dir: Path, input_path: Path, recursive: bool = 
         # Find all PDF files in the input directory
         pattern = "**/*.pdf" if recursive else "*.pdf"
         input_pdf_files = list(input_path.glob(pattern))
+        
+        # Filter out files with disallowed names
+        disallowed_files = [f for f in input_pdf_files if f.stem.lower() in DISALLOWED_FILE_NAMES]
+        for f in disallowed_files:
+            logger.error(f"Skipping '{f.name}' - filename '{f.stem}' is reserved for system files. Please rename the file.")
+            print(f"ERROR: '{f.name}' uses a reserved filename. Please rename this file to continue.")
+        
+        input_pdf_files = [f for f in input_pdf_files if f.stem.lower() not in DISALLOWED_FILE_NAMES]
         
         if input_pdf_files:
             logger.info(f"Found {len(input_pdf_files)} PDF files in input directory")
