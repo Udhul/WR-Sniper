@@ -480,3 +480,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# TODO and Awareness:
+
+# Done:
+# Skip disallowed names
+# Unnamed argument logic interpreted as input file if PDF, base directory if directory, unless --base-dir is set, then the dir is interpreted as input-dir
+# Skip existing files unless --overwrite is set.
+# limit log files to 5
+# Add one raw text key to the json, which contains all the lines in one string, using newline seperator "\n" for each line.
