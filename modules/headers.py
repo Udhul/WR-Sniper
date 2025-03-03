@@ -32,6 +32,8 @@ table_headers = {
     },
     "Existing ": {
     },
+    "Remove": {
+    },
     "Splice": {
     }
 }
@@ -40,7 +42,7 @@ for key in table_headers:
 
 
 # Line headers: First column in the table line (The "key" of the line)
-line_headers = {
+service_configurations_headers = {
     "Work order ID:": {
     },
     "Service ID:": {
@@ -57,10 +59,48 @@ line_headers = {
     },
     "Subscriber address:": {
     },
-    "Service duration:": {
-    },
     "Date:": {
     }
 }
+
+site_operations_headers = {
+    "Flexibility point:": {
+    },
+    "Address:": {
+    },
+    "Position:": {
+    },
+    "Remark:": {
+    },
+    "Service:": {
+    },
+    "Interface:": {
+    },
+    "From:": {
+    },
+    "To address:": {
+    },
+    "Equipment ref.:": {
+    },
+    "Duct node name/id:":{
+    },
+    "Duct node pos:": {
+    },
+    "Duct node address:": {
+    },
+    "Type:": {
+    },
+    "Catalogue name:": {
+    },
+    "Service type:": {
+    },
+    "Connection:": {
+    }
+}
+
+line_headers = service_configurations_headers + site_operations_headers
 for key in line_headers:
     line_headers[key]["level"] = 4
+
+
+# TODO Fix overlap between keys.
