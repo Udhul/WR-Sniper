@@ -483,6 +483,8 @@ if __name__ == "__main__":
 
 
 # TODO and Awareness:
+# Order lines by page, then by first y-coordinate, then by first x-coordinate. Update/set line numbers according to this sorting
+
 
 # Done:
 # Skip disallowed names
