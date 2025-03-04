@@ -134,17 +134,22 @@ class PDFConverter:
                                     # Store position coordinates (x0, y0, x1, y1)
                                     position = block[:4]
                                     break
-                            
-                            text_line["position"] = position if position else None
+                        
+                        # Set position
+                        text_line["position"] = position if position else None
                         
                         document_lines.append(text_line)
             
             # Sort lines by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
             def sort_key(line):
                 page = line.get("page", 0)
-                position = line.get("position", None)
+                position = line.get("position")
                 # If position is available, use y-coordinate (position[1]) and x-coordinate (position[0])
-                return (page, position[1] if position else 0, position[0] if position else 0)
+                if position:
+                    return (page, position[1], position[0])
+                else:
+                    logger.error(f"Missing position information for line: {line}")
+                    return (page, 0, 0)
             
             # Sort document lines
             document_lines.sort(key=sort_key)
@@ -162,6 +167,7 @@ class PDFConverter:
             logger.error(f"Error extracting text from {pdf_path}: {e}")
         
         return document_lines, document_raw_text
+
     
     def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
         """
@@ -495,7 +501,7 @@ if __name__ == "__main__":
 
 
 # TODO and Awareness:
-
+# Update line and block extraction, to ensure they follow the best and most consistent approach. Maybe blocks alone can be used to infer lines, instead of splitting lines by \n first.
 
 # Done:
 # Order lines by page, then by first y-coordinate, then by first x-coordinate. Update/set line numbers according to this sorting
