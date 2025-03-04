@@ -83,7 +83,6 @@ class PDFConverter:
             overwrite: Whether to overwrite existing JSON files (default: False)
         """
         self.output_dir = Path(output_dir) if output_dir else None
-        self.include_positions = True # For now, let's always include positions
         self.overwrite = overwrite
         
         if self.output_dir:
@@ -112,8 +111,8 @@ class PDFConverter:
                 text = page.get_text("text")
                 lines = text.split("\n")
                 
-                # Get text blocks with position information if needed
-                blocks = page.get_text("blocks") if self.include_positions else []
+                # Get text blocks with position information
+                blocks = page.get_text("blocks")
                 
                 # Process each line
                 for line_num, line in enumerate(lines):
@@ -122,26 +121,40 @@ class PDFConverter:
                         # Create the text block
                         text_line = {
                             "page": page_num + 1,
-                            "line_num": line_num + 1,
+                            "line_num": line_num + 1,  # Temporary line number, will be updated after sorting
                             "text": line
                         }
                         
-                        # Add position data if requested
-                        if self.include_positions:
-                            position = None
-                            for block in blocks:
-                                if isinstance(block, tuple) and len(block) >= 5:
-                                    block_text = block[4]
-                                    if line in block_text:
-                                        # Store position coordinates (x0, y0, x1, y1)
-                                        position = block[:4]
-                                        break
+                        # Add position data
+                        position = None
+                        for block in blocks:
+                            if isinstance(block, tuple) and len(block) >= 5:
+                                block_text = block[4]
+                                if line in block_text:
+                                    # Store position coordinates (x0, y0, x1, y1)
+                                    position = block[:4]
+                                    break
                             
-                            if position:
-                                text_line["position"] = position
+                            text_line["position"] = position if position else None
                         
                         document_lines.append(text_line)
-                document_raw_text += text + "\n"
+            
+            # Sort lines by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
+            def sort_key(line):
+                page = line.get("page", 0)
+                position = line.get("position", None)
+                # If position is available, use y-coordinate (position[1]) and x-coordinate (position[0])
+                return (page, position[1] if position else 0, position[0] if position else 0)
+            
+            # Sort document lines
+            document_lines.sort(key=sort_key)
+            
+            # Update line numbers after sorting
+            for line_num, line in enumerate(document_lines, 1):
+                line["line_num"] = line_num
+            
+            # Build document_raw_text from sorted lines
+            document_raw_text = "\n".join(line["text"] for line in document_lines)
             
             doc.close()
             logger.info(f"Extracted {len(document_lines)} text lines from {pdf_path}")
@@ -186,7 +199,6 @@ class PDFConverter:
                     "file_hash": file_hash,
                     "processed_date": datetime.datetime.now().isoformat(),
                     "page_count": len(set(block["page"] for block in document_lines)) if document_lines else 0,
-                    "include_positions": self.include_positions
                 },
                 "content": {
                     "lines": document_lines,
@@ -483,10 +495,10 @@ if __name__ == "__main__":
 
 
 # TODO and Awareness:
-# Order lines by page, then by first y-coordinate, then by first x-coordinate. Update/set line numbers according to this sorting
 
 
 # Done:
+# Order lines by page, then by first y-coordinate, then by first x-coordinate. Update/set line numbers according to this sorting
 # Skip disallowed names
 # Unnamed argument logic interpreted as input file if PDF, base directory if directory, unless --base-dir is set, then the dir is interpreted as input-dir
 # Skip existing files unless --overwrite is set.
