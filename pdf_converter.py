@@ -28,6 +28,7 @@ import hashlib
 from typing import Dict, List, Optional, Union, Tuple
 import logging
 import fitz  # PyMuPDF for text extraction
+from fitz import Document, Page
 from tqdm import tqdm
 
 # File names which overlap with system files in the destination folder
@@ -99,66 +100,49 @@ class PDFConverter:
             List of dictionaries containing text lines and their positions
             String containing all the raw text in the pdf file, concatenated using newline character '\n'.
         """
-        document_lines: List[Dict] = []
-        document_raw_text: str = ""
+        document_blocks: List[Dict] = []
 
         try:
             # Open the PDF with PyMuPDF
-            doc = fitz.open(str(pdf_path))
-            
+            doc:Document = fitz.open(str(pdf_path))
+
+            # Process each page, storing blocks
             for page_num, page in enumerate(doc):
-                # Get the text with line breaks preserved
-                text = page.get_text("text")
-                lines = text.split("\n")
+                page:Page
                 
                 # Get text blocks with position information
                 blocks = page.get_text("blocks")
-                
-                # Process each line
-                for line_num, line in enumerate(lines):
-                    line = line.strip()
-                    if line:  # Skip empty lines
-                        # Create the text block
-                        text_line = {
-                            "page": page_num + 1,
-                            "line_num": line_num + 1,  # Temporary line number, will be updated after sorting
-                            "text": line
-                        }
-                        
-                        # Add position data
-                        position = None
-                        for block in blocks:
-                            if isinstance(block, tuple) and len(block) >= 5:
-                                block_text = block[4]
-                                if line in block_text:
-                                    # Store position coordinates (x0, y0, x1, y1)
-                                    position = block[:4]
-                                    break
-                        
-                        # Set position
-                        text_line["position"] = position if position else None
-                        
-                        document_lines.append(text_line)
+
+                # Process each block
+                for block in blocks:
+                    document_blocks.append({
+                        "page": page_num + 1,
+                        "text": block[4],
+                        "position": block[:4]
+                    })
             
-            # Sort lines by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
-            def sort_key(line):
-                page = line.get("page", 0)
-                position = line.get("position")
+            # Sort blocks by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
+            def sort_key(block):
+                page = block.get("page", 0)
+                position = block.get("position")
                 # If position is available, use y-coordinate (position[1]) and x-coordinate (position[0])
                 if position:
                     return (page, position[1], position[0])
                 else:
-                    logger.error(f"Missing position information for line: {line}")
+                    logger.error(f"Missing position information for block: {block}")
                     return (page, 0, 0)
             
-            # Sort document lines
-            document_lines.sort(key=sort_key)
-            
-            # Update line numbers after sorting
-            for line_num, line in enumerate(document_lines, 1):
-                line["line_num"] = line_num
-            
-            # Build document_raw_text from sorted lines
+            # Sort document blocks
+            document_blocks.sort(key=sort_key)
+
+            # Set block numbers after sorting
+            for block_num, block in enumerate(document_blocks, 1):
+                block["block_num"] = block_num
+
+            # Create lines by merging blocks on the same page with the same y-coordinate
+            document_lines = self.merge_blocks_into_lines(document_blocks)
+
+            # Build document_raw_text from lines
             document_raw_text = "\n".join(line["text"] for line in document_lines)
             
             doc.close()
@@ -167,6 +151,88 @@ class PDFConverter:
             logger.error(f"Error extracting text from {pdf_path}: {e}")
         
         return document_lines, document_raw_text
+
+    def merge_blocks_into_lines(self, document_blocks: List[Dict], join_character: str = "\t") -> List[Dict]:
+        """
+        Merge blocks on the same page with similar y-coordinates into lines.
+        
+        Args:
+            document_blocks: List of text blocks with position information
+            join_character: Character used to join text blocks within a line (default: tab)
+            
+        Returns:
+            List of merged text lines
+        """
+        document_lines = []
+        current_page = None
+        current_y = None
+        current_line_blocks = []
+        y_tolerance = 2  # Allow slight variation in y-coordinates (in points)
+        
+        def create_line_from_blocks(blocks, page):
+            """Helper function to create a line from a list of blocks"""
+            if not blocks:
+                return None
+                
+            # Sort blocks in the line by x-coordinate
+            blocks.sort(key=lambda b: b["position"][0])
+            
+            # Strip newlines from block text and join
+            cleaned_texts = []
+            for b in blocks:
+                text = b["text"]
+                text = text.strip("\n")  # Remove leading/trailing newlines
+                # text = text.replace("\n", " ")  # Replace internal newlines with spaces
+                cleaned_texts.append(text)
+            
+            line_text = join_character.join(cleaned_texts)
+            
+            # Use the leftmost x0, topmost y0, rightmost x1, and bottommost y1
+            x0 = min(b["position"][0] for b in blocks)
+            y0 = min(b["position"][1] for b in blocks)
+            x1 = max(b["position"][2] for b in blocks)
+            y1 = max(b["position"][3] for b in blocks)
+            
+            return {
+                "page": page,
+                "text": line_text,
+                "position": (x0, y0, x1, y1)
+            }
+        
+        # Process all blocks
+        for block in document_blocks:
+            page = block["page"]
+            position = block["position"]
+            
+            # If we're looking at a new page or a significantly different y-coordinate
+            if (current_page != page or
+                current_y is None or
+                abs(position[1] - current_y) > y_tolerance):
+                
+                # Save the current line if it exists
+                line = create_line_from_blocks(current_line_blocks, current_page)
+                if line:
+                    document_lines.append(line)
+                
+                # Start a new line
+                current_page = page
+                current_y = position[1]
+                current_line_blocks = [block]
+            else:
+                # Continue the current line
+                current_line_blocks.append(block)
+        
+        # Add the last line if it exists
+        line = create_line_from_blocks(current_line_blocks, current_page)
+        if line:
+            document_lines.append(line)
+        
+        # Add line numbers after creating all lines
+        for line_num, line in enumerate(document_lines, 1):
+            line["line_num"] = line_num
+            
+        return document_lines
+
 
     
     def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
