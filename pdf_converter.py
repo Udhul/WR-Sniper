@@ -161,15 +161,20 @@ class PDFConverter:
             join_character: Character used to join text blocks within a line (default: tab)
             
         Returns:
-            List of merged text lines
+            List of merged text lines with original blocks included
         """
         document_lines = []
-        current_page = None
-        current_y = None
-        current_line_blocks = []
         y_tolerance = 2  # Allow slight variation in y-coordinates (in points)
         
-        def create_line_from_blocks(blocks, page):
+        # Group blocks by page
+        pages = {}
+        for block in document_blocks:
+            page_num = block["page"]
+            if page_num not in pages:
+                pages[page_num] = []
+            pages[page_num].append(block)
+        
+        def create_line_from_blocks(blocks):
             """Helper function to create a line from a list of blocks"""
             if not blocks:
                 return None
@@ -178,13 +183,7 @@ class PDFConverter:
             blocks.sort(key=lambda b: b["position"][0])
             
             # Strip newlines from block text and join
-            cleaned_texts = []
-            for b in blocks:
-                text = b["text"]
-                text = text.strip("\n")  # Remove leading/trailing newlines
-                # text = text.replace("\n", " ")  # Replace internal newlines with spaces
-                cleaned_texts.append(text)
-            
+            cleaned_texts = [b["text"].strip("\n") for b in blocks]
             line_text = join_character.join(cleaned_texts)
             
             # Use the leftmost x0, topmost y0, rightmost x1, and bottommost y1
@@ -194,38 +193,38 @@ class PDFConverter:
             y1 = max(b["position"][3] for b in blocks)
             
             return {
-                "page": page,
+                "page": blocks[0]["page"],
                 "text": line_text,
-                "position": (x0, y0, x1, y1)
+                "position": (x0, y0, x1, y1),
+                "blocks": blocks  # Include the original blocks
             }
         
-        # Process all blocks
-        for block in document_blocks:
-            page = block["page"]
-            position = block["position"]
+        # Process each page
+        for page_num in sorted(pages.keys()):
+            page_blocks = pages[page_num]
             
-            # If we're looking at a new page or a significantly different y-coordinate
-            if (current_page != page or
-                current_y is None or
-                abs(position[1] - current_y) > y_tolerance):
+            # Group blocks by similar y-coordinates
+            y_groups = {}
+            for block in page_blocks:
+                y_coord = block["position"][1]
                 
-                # Save the current line if it exists
-                line = create_line_from_blocks(current_line_blocks, current_page)
+                # Find if there's an existing group with similar y-coordinate
+                matching_group = None
+                for group_y in y_groups:
+                    if abs(y_coord - group_y) <= y_tolerance:
+                        matching_group = group_y
+                        break
+                
+                if matching_group is not None:
+                    y_groups[matching_group].append(block)
+                else:
+                    y_groups[y_coord] = [block]
+            
+            # Create lines from each y-coordinate group
+            for y_coord in sorted(y_groups.keys()):
+                line = create_line_from_blocks(y_groups[y_coord])
                 if line:
                     document_lines.append(line)
-                
-                # Start a new line
-                current_page = page
-                current_y = position[1]
-                current_line_blocks = [block]
-            else:
-                # Continue the current line
-                current_line_blocks.append(block)
-        
-        # Add the last line if it exists
-        line = create_line_from_blocks(current_line_blocks, current_page)
-        if line:
-            document_lines.append(line)
         
         # Add line numbers after creating all lines
         for line_num, line in enumerate(document_lines, 1):
@@ -234,7 +233,6 @@ class PDFConverter:
         return document_lines
 
 
-    
     def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
         """
         Convert a PDF file to a structured JSON format.
