@@ -115,11 +115,21 @@ class PDFConverter:
 
                 # Process each block
                 for block in blocks:
-                    document_blocks.append({
+                    text = block[4].strip("\n") # Block text in one string (strip beginning and ending newlines)
+                    current_block_dict = {
                         "page": page_num + 1,
-                        "texts": block[4].strip("\n").split("\n"), # Create a list of lines from the block text (strip beginning and ending newlines)
-                        "position": block[:4]
-                    })
+                        "text": text,
+                        "position": block[:4],
+                        "table": {} # To be populated by blocks with multiple lines (they correspond to a table in the original pdf)
+                    }
+                    texts = text.split("\n") # Create a list of lines from the block text
+                    if len(texts) > 1:
+                        current_block_dict["table"] = {
+                            "key": texts[0], # First cell in the table row (key, explains the subject of the cell data)
+                            "value": texts[1], # second list item (for this pdf dataset, there would normally only be two table cells in a table row)
+                            "values": texts[1:] # In case there are more than 2 cells, all value cells can be accessed here
+                        } # TODO: Maybe make the table "value" just be either a str or list depending on whether there are multiple value cells, and drop "values" as it create repeated data storage
+                    document_blocks.append(current_block_dict)
             
             # Sort blocks by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
             def sort_key(block):
