@@ -117,7 +117,7 @@ class PDFConverter:
                 for block in blocks:
                     document_blocks.append({
                         "page": page_num + 1,
-                        "text": block[4],
+                        "texts": block[4].strip("\n").split("\n"), # Create a list of lines from the block text (strip beginning and ending newlines)
                         "position": block[:4]
                     })
             
@@ -137,20 +137,20 @@ class PDFConverter:
 
             # Set block numbers after sorting
             for block_num, block in enumerate(document_blocks, 1):
-                block["block_num"] = block_num
+                block["line_num"] = block_num
 
-            # Create lines by merging blocks on the same page with the same y-coordinate
-            document_lines = self.merge_blocks_into_lines(document_blocks)
-
-            # Build document_raw_text from lines
-            document_raw_text = "\n".join(line["text"] for line in document_lines)
-            
+            # Build document_raw_text from blocks text lines
+            document_raw_text = ""
+            for block in document_blocks:
+                document_raw_text += "\n".join(t for t in block["texts"]) + "\n"
+            document_raw_text = document_raw_text.rstrip("\n")
+                
             doc.close()
-            logger.info(f"Extracted {len(document_lines)} text lines from {pdf_path}")
+            logger.info(f"Extracted {len(document_blocks)} text blocks from {pdf_path}")
         except Exception as e:
             logger.error(f"Error extracting text from {pdf_path}: {e}")
         
-        return document_lines, document_raw_text
+        return document_blocks, document_raw_text
 
     def merge_blocks_into_lines(self, document_blocks: List[Dict], join_character: str = "\t") -> List[Dict]:
         """
