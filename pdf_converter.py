@@ -494,9 +494,10 @@ if __name__ == "__main__":
 
 
 # TODO and Awareness:
-# Update line and block extraction, to ensure they follow the best and most consistent approach. Maybe blocks alone can be used to infer lines, instead of splitting lines by \n first.
+# Make onefile compiled executable that can be used with CLI/API from another app, which packs all the necessary dependencies. Input pdf, output json
 
 # Done:
+# Update line and block extraction, to ensure they follow the best and most consistent approach. Maybe blocks alone can be used to infer lines, instead of splitting lines by \n first.
 # Order lines by page, then by first y-coordinate, then by first x-coordinate. Update/set line numbers according to this sorting
 # Skip disallowed names
 # Unnamed argument logic interpreted as input file if PDF, base directory if directory, unless --base-dir is set, then the dir is interpreted as input-dir
