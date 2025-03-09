@@ -196,7 +196,7 @@ export function createSummaryJson(organizedData) {
             const block = fpData.info[i];
             const lines = Array.isArray(block) ? block : (block.lines || []);
             for (let j = 0; j < lines.length; j++) {
-                if (lines[j].startsWith("Address: ") && j + 1 < lines.length) {
+                if (lines[j].startsWith("Address") && j + 1 < lines.length) {
                     fpSummary["address"] = lines[j + 1];
                     break;
                 }
