@@ -1,4 +1,14 @@
 /**
+ * Standardizes a key by removing spaces, newlines, and colons.
+ *
+ * @param {string} key - The key to standardize.
+ * @returns {string} - The standardized key.
+ */
+function standardizeKey(key) {
+    return key.trim().replace(/:$/, '').trim();
+}
+
+/**
  * Finds the block number in an array of blocks that contains the specified keyword.
  * It can search only the first line (keysOnly=true) or all lines.
  *
@@ -73,10 +83,11 @@ export function organizeJson(jsonData) {
             if (foundKeys.has(key)) continue;
             if (block.lines && block.lines.length > 0 && block.lines[0].includes(key) && block.lines.length > 1) {
                 const lineKey = block.lines[0]; // full key from the block
+                const standardizedKey = standardizeKey(lineKey); // Standardize the key
                 const lineValues = block.lines.slice(1);
                 const lineValue = lineValues.join("\n");
                 if (lineValue) {
-                    organizedData["Service Configurations"][lineKey] = lineValue;
+                    organizedData["Service Configurations"][standardizedKey] = lineValue;
                     foundKeys.add(key);
                     if (foundKeys.size === lineKeys.length) break;
                 }
@@ -143,9 +154,10 @@ export function organizeJson(jsonData) {
             for (let j = 0; j < stateHeaderIndices.length; j++) {
                 const headerIndex = stateHeaderIndices[j];
                 const headerTitle = fpBlocks[headerIndex].lines[0];
+                const standardizedHeader = standardizeKey(headerTitle); // Standardize header
                 const sectionEnd = (j + 1 < stateHeaderIndices.length) ? stateHeaderIndices[j + 1] : fpBlocks.length;
                 const sectionBlocks = fpBlocks.slice(headerIndex, sectionEnd);
-                organizedFP["state_sections"][headerTitle] = sectionBlocks;
+                organizedFP["state_sections"][standardizedHeader] = sectionBlocks;
             }
         }
         organizedData["Site Operations"]["Flexibility Points"][fpTitle] = organizedFP;
@@ -165,8 +177,8 @@ export function organizeJson(jsonData) {
  */
 export function createSummaryJson(organizedData) {
     const summary = {
-        "Subscriber address": (organizedData["Service Configurations"]["Subscriber address:"] || ""),
-        "LID": (organizedData["Service Configurations"]["Service ID:"] || ""),
+        "Subscriber address": (organizedData["Service Configurations"][standardizeKey("Subscriber address:")] || ""),
+        "LID": (organizedData["Service Configurations"][standardizeKey("Service ID:")] || ""),
         "Flexibility Points": []
     };
 
@@ -194,7 +206,7 @@ export function createSummaryJson(organizedData) {
 
         // Get state sections whose header contains "Add ", "Connect ", or "Remove ".
         for (const header in fpData.state_sections) {
-            if (header.includes("Add ") || header.includes("Connect ") || header.includes("Remove ")) {
+            if (header.includes("Add") || header.includes("Connect") || header.includes("Remove")) {
                 const actionContent = {};
                 const section = fpData.state_sections[header];
                 // Skip the header block (first block in the section)
@@ -203,7 +215,7 @@ export function createSummaryJson(organizedData) {
                     const lines = Array.isArray(block) ? block : (block.lines || []);
                     if (lines.length > 0) {
                         if (lines[0].trim().endsWith(':')) {
-                            const key = lines[0].trim().slice(0, -1).trim();
+                            const key = standardizeKey(lines[0]); // Standardize key
                             const value = (lines.length > 1) ? lines.slice(1).join("\n") : "";
                             actionContent[key] = value;
                         } else {

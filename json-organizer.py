@@ -28,6 +28,14 @@ def find_block_num_with_keyword(blocks, keyword, keys_only=True, exact_match=Fal
     return None
 
 
+def standardize_key(key: str) -> str:
+    """
+    Standardize a key by removing spaces, newlines, and colons.
+    """
+    # Remove colons, strip spaces and newlines
+    return key.strip().rstrip(":").strip()
+
+
 def organize_json(json_data: dict) -> dict:
     organized_data = {
         "Service Configurations": {},
@@ -61,11 +69,12 @@ def organize_json(json_data: dict) -> dict:
                 
             if block["lines"] and key in block["lines"][0] and len(block["lines"]) > 1:
                 line_key = block["lines"][0]  # Get exact full line key
+                standardized_key = standardize_key(line_key)  # Standardize the key
                 line_values = block["lines"][1:]
                 line_value = "\n".join(line_values)  # Join all line values into one string
                 
                 if line_value:
-                    organized_data["Service Configurations"][line_key] = line_value
+                    organized_data["Service Configurations"][standardized_key] = line_value
                     found_keys.add(key)
                     
                     # If we've found all keys, break out of this inner loop
@@ -133,6 +142,7 @@ def organize_json(json_data: dict) -> dict:
             for j, header_index in enumerate(state_header_indices):
                 # Get the state header title
                 header_title = fp_blocks[header_index]["lines"][0]
+                standardized_header = standardize_key(header_title)  # Standardize the header title
                 
                 # Determine the end index for this section
                 section_end = state_header_indices[j+1] if j+1 < len(state_header_indices) else len(fp_blocks)
@@ -141,29 +151,13 @@ def organize_json(json_data: dict) -> dict:
                 section_blocks = fp_blocks[header_index:section_end]
                 
                 # Store in the organized structure
-                organized_fp["state_sections"][header_title] = section_blocks
+                organized_fp["state_sections"][standardized_header] = section_blocks
         
         # Store this organized flexibility point
         organized_data["Site Operations"]["Flexibility Points"][fp_title] = organized_fp
     
     return organized_data
 
-def clean_structure(organized_data):
-    """
-    Clean the block structures by replacing each block with just its lines.
-    """
-    # Clean Service Configurations (no blocks to clean here)
-    
-    # Clean Site Operations - Flexibility Points
-    for fp_title, fp_data in organized_data["Site Operations"]["Flexibility Points"].items():
-        # Clean info blocks
-        fp_data["info"] = [block.get("lines", []) for block in fp_data.get("info", [])]
-        
-        # Clean state sections
-        for state_header, state_blocks in fp_data.get("state_sections", {}).items():
-            fp_data["state_sections"][state_header] = [block.get("lines", []) for block in state_blocks]
-    
-    return organized_data
 
 def create_summary_json(organized_data):
     """
@@ -174,9 +168,9 @@ def create_summary_json(organized_data):
     """
 
     summary = {
-        # Add top level Service Config info
-        "Subscriber address": organized_data.get("Service Configurations", {}).get("Subscriber address: ", ""),
-        "LID": organized_data.get("Service Configurations", {}).get("Service ID: ", ""),
+        # Add top level Service Config info - Use standardized keys
+        "Subscriber address": organized_data.get("Service Configurations", {}).get(standardize_key("Subscriber address: "), ""),
+        "LID": organized_data.get("Service Configurations", {}).get(standardize_key("Service ID: "), ""),
         # Prepare Flexibility Points list
         "Flexibility Points": []
     }
@@ -202,7 +196,7 @@ def create_summary_json(organized_data):
         
         # Get relevant state sections (Add, Connect, Remove)
         for header, section in fp_data.get("state_sections", {}).items():
-            if any(keyword in header for keyword in ["Add ", "Connect ", "Remove "]):
+            if any(keyword in header for keyword in ["Add", "Connect", "Remove"]):
                 # Initialize a dictionary for this action's content
                 action_content = {}
                 
@@ -214,7 +208,7 @@ def create_summary_json(organized_data):
                     if lines:
                         # If the first line ends with a colon, treat it as a key-value pair
                         if lines[0].rstrip().endswith(':'):
-                            key = lines[0].rstrip(':').strip()
+                            key = standardize_key(lines[0])  # Standardize the key
                             value = "\n".join(lines[1:]) if len(lines) > 1 else ""
                             action_content[key] = value
                         else:
@@ -235,6 +229,23 @@ def create_summary_json(organized_data):
     return summary
 
 
+def clean_structure(organized_data):
+    """
+    Clean the block structures by replacing each block with just its lines.
+    """
+    # Clean Service Configurations (no blocks to clean here)
+    
+    # Clean Site Operations - Flexibility Points
+    for fp_title, fp_data in organized_data["Site Operations"]["Flexibility Points"].items():
+        # Clean info blocks
+        fp_data["info"] = [block.get("lines", []) for block in fp_data.get("info", [])]
+        
+        # Clean state sections
+        for state_header, state_blocks in fp_data.get("state_sections", {}).items():
+            fp_data["state_sections"][state_header] = [block.get("lines", []) for block in state_blocks]
+    
+    return organized_data
+
 # Test
 if __name__ == "__main__":
     json_data = load_json(DEFAULT_TEST_PATH)
@@ -245,6 +256,3 @@ if __name__ == "__main__":
     # Print the summary
     print(json.dumps(summary_data, indent=4, ensure_ascii=False))
 
-
-# TODO: standardize key format. Maybe always remove spaces and newlines and : from keys in the resulting json. 
-# This could be done at the level of the pdf converter
