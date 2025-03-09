@@ -1,10 +1,34 @@
-// Import the PDF converter
 import { convertPdfToJson } from './pdf-converter.js';
+import { isPdfUrl, getFilenameFromUrl, formatJson } from './utils.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const statusDiv = document.getElementById('status');
   const jsonOutput = document.getElementById('jsonOutput');
-  const container = document.querySelector('.container');
+
+  // Style settings for error display
+  const errorStyles = {
+    color: '#d32f2f',
+    fontWeight: 'bold',
+    fontSize: '14px',
+    textAlign: 'center',
+    padding: '30px'
+  };
+  
+  // Normal styles (for resetting)
+  const normalStyles = {
+    color: '',
+    fontWeight: '',
+    fontSize: '',
+    textAlign: '',
+    padding: ''
+  };
+  
+  // Apply styles to an element
+  const applyStyles = (element, styles) => {
+    for (const [property, value] of Object.entries(styles)) {
+      element.style[property] = value;
+    }
+  };
 
   // Immediately start checking if this is a PDF page
   try {
@@ -15,13 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Not a PDF page - show prominent message
       statusDiv.textContent = 'Not a PDF page';
       jsonOutput.textContent = 'Please navigate to a PDF page and try again.';
-     
-      // Make the message more noticeable
-      jsonOutput.style.color = '#d32f2f';
-      jsonOutput.style.fontWeight = 'bold';
-      jsonOutput.style.fontSize = '14px';
-      jsonOutput.style.textAlign = 'center';
-      jsonOutput.style.padding = '30px';
+      applyStyles(jsonOutput, errorStyles);
       return;
     }
    
@@ -41,37 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const jsonData = await convertPdfToJson(pdfBuffer, getFilenameFromUrl(tab.url));
    
     // Display the JSON in the popup
-    const formattedJson = JSON.stringify(jsonData, null, 2);
-    jsonOutput.textContent = formattedJson;
-    jsonOutput.style.color = '';
-    jsonOutput.style.fontWeight = '';
-    jsonOutput.style.fontSize = '';
-    jsonOutput.style.textAlign = '';
-    jsonOutput.style.padding = '';
+    jsonOutput.textContent = formatJson(jsonData);
+    applyStyles(jsonOutput, normalStyles);
    
     statusDiv.textContent = 'Conversion complete!';
   } catch (error) {
     statusDiv.textContent = 'Error: ' + error.message;
-    jsonOutput.textContent = 'An error occurred during conversion:\n' + error.stack;
-    console.error(error);
-  }
-
-  function isPdfUrl(url) {
-    return url.endsWith('.pdf') ||
-           url.includes('.pdf?') ||
-           url.includes('/pdf/') ||
-           url.includes('pdf.js');
-  }
- 
-  function getFilenameFromUrl(url) {
-    // Extract filename from URL
-    try {
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname;
-      const filename = pathname.split('/').pop();
-      return filename || 'document.pdf';
-    } catch (e) {
-      return 'document.pdf';
-    }
   }
 });
