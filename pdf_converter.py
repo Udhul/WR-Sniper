@@ -118,17 +118,18 @@ class PDFConverter:
                     text = block[4].strip("\n") # Block text in one string (strip beginning and ending newlines)
                     current_block_dict = {
                         "page": page_num + 1,
-                        "text": text,
+                        "lines": text.split("\n"),
+                        # "text": text,
                         "position": block[:4],
-                        "table": {} # To be populated by blocks with multiple lines (they correspond to a table in the original pdf)
+                        # "table": {} # To be populated by blocks with multiple lines (they correspond to a table in the original pdf)
                     }
-                    texts = text.split("\n") # Create a list of lines from the block text
-                    if len(texts) > 1:
-                        current_block_dict["table"] = {
-                            "key": texts[0], # First cell in the table row (key, explains the subject of the cell data)
-                            "value": texts[1], # second list item (for this pdf dataset, there would normally only be two table cells in a table row)
-                            "values": texts[1:] # In case there are more than 2 cells, all value cells can be accessed here
-                        } # TODO: Maybe make the table "value" just be either a str or list depending on whether there are multiple value cells, and drop "values" as it create repeated data storage
+                    # texts = text.split("\n") # Create a list of lines from the block text
+                    # if len(texts) > 1:
+                    #     current_block_dict["table"] = {
+                    #         "key": texts[0], # First cell in the table row (key, explains the subject of the cell data)
+                    #         "value": texts[1], # second list item (for this pdf dataset, there would normally only be two table cells in a table row)
+                    #         "values": texts[1:] # In case there are more than 2 cells, all value cells can be accessed here
+                    #     } # TODO: Maybe make the table "value" just be either a str or list depending on whether there are multiple value cells, and drop "values" as it create repeated data storage
                     document_blocks.append(current_block_dict)
             
             # Sort blocks by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
@@ -146,8 +147,8 @@ class PDFConverter:
             document_blocks.sort(key=sort_key)
 
             # Set block numbers after sorting
-            for block_num, block in enumerate(document_blocks, 1):
-                block["line_num"] = block_num
+            for block_index, block in enumerate(document_blocks):
+                block["block_index"] = block_index
 
             # Build document_raw_text from blocks text lines
             document_raw_text = ""
@@ -188,7 +189,7 @@ class PDFConverter:
                 file_path = str(pdf_path)
             
             # Extract text content with line breaks preserved
-            document_lines, document_raw_text = self.extract_text_from_pdf(pdf_path)
+            document_blocks, document_raw_text = self.extract_text_from_pdf(pdf_path)
             
             # Create JSON structure
             json_data = {
@@ -197,10 +198,10 @@ class PDFConverter:
                     "file_path": file_path,
                     "file_hash": file_hash,
                     "processed_date": datetime.datetime.now().isoformat(),
-                    "page_count": len(set(block["page"] for block in document_lines)) if document_lines else 0,
+                    "page_count": len(set(block["page"] for block in document_blocks)) if document_blocks else 0,
                 },
                 "content": {
-                    "lines": document_lines,
+                    "lines": document_blocks,
                     "raw": document_raw_text
                 },
                 "annotations": {
