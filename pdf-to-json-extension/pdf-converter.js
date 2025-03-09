@@ -90,7 +90,7 @@ async function extractTextFromPdf(pdfDoc) {
   
   // Set block numbers after sorting
   for (let i = 0; i < documentBlocks.length; i++) {
-    documentBlocks[i].line_num = i + 1;
+    documentBlocks[i].block_index = i;
   }
   
   // Build raw text from all blocks
