@@ -57,6 +57,102 @@
       line-height: 1.4;
       margin: 0;
     }
+    
+    /* New styles for summary view */
+    .summary-view {
+      flex-grow: 1;
+      overflow: auto;
+      background-color: #fff;
+      padding: 15px;
+      border-radius: 4px;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .summary-view h2 {
+      color: #1a73e8;
+      margin-top: 0;
+      border-bottom: 1px solid #e0e0e0;
+      padding-bottom: 8px;
+    }
+    .summary-view h3 {
+      color: #202124;
+      margin: 12px 0 5px 0;
+      font-size: 16px;
+    }
+    .summary-view h4 {
+      color: #5f6368;
+      margin: 10px 0 5px 0;
+      font-size: 14px;
+    }
+    .info-section {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .info-section p {
+      margin: 5px 0;
+    }
+    .accordion {
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .accordion-item {
+      border-bottom: 1px solid #dadce0;
+    }
+    .accordion-item:last-child {
+      border-bottom: none;
+    }
+    .accordion-header {
+      padding: 10px 15px;
+      background-color: #f8f9fa;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .accordion-header:hover {
+      background-color: #f1f3f4;
+    }
+    .accordion-header.active {
+      background-color: #e8f0fe;
+      color: #1a73e8;
+    }
+    .fp-address {
+      font-weight: normal;
+      font-size: 12px;
+      color: #5f6368;
+    }
+    .accordion-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      padding: 0 15px;
+    }
+    .accordion-content.expanded {
+      max-height: 500px;
+      padding: 10px 15px;
+    }
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .details-table tr:nth-child(odd) {
+      background-color: #f8f9fa;
+    }
+    .key-cell {
+      width: 120px;
+      font-weight: bold;
+      padding: 5px;
+      vertical-align: top;
+    }
+    .value-cell {
+      padding: 5px;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -65,7 +161,7 @@
     <div id="statusContainer">
       <div id="status">Processing PDF...</div>
     </div>
-    <pre id="jsonOutput">Loading...</pre>
+    <div id="contentOutput" class="summary-view">Loading...</div>
   </div>
   <script src="popup.js" type="module"></script>
 </body>
