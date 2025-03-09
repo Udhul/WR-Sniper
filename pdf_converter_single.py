@@ -2,18 +2,13 @@
 Single PDF to JSON Converter API
 
 A simplified version of the PDF converter that converts a PDF to JSON.
-This script can be used as a command-line tool or as an API.
+This script can be used as a command-line tool, API, or background service.
 
 Features:
 - Process PDF from file path or memory buffer
 - Return JSON data or save to file
 - Standalone executable with no external dependencies
-
-Usage:
-  - Drag and drop: Drag a PDF onto the executable
-  - Command line:  pdf_converter_single.py input.pdf [output.json]
-  - Stdin:         cat input.pdf | pdf_converter_single.py --stdin [output.json]
-  - API:           Import and call convert_pdf_from_path/convert_pdf_from_bytes
+- Silent operation mode for background processing
 """
 
 import sys
@@ -78,9 +73,11 @@ def extract_text_from_pdf_doc(doc: fitz.Document, filename: str = "unknown.pdf")
             document_raw_text += "\n".join(block["lines"]) + "\n"
         document_raw_text = document_raw_text.rstrip("\n")
             
-        print(f"Extracted {len(document_blocks)} text blocks from {filename}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Extracted {len(document_blocks)} text blocks from {filename}", file=sys.stderr)
     except Exception as e:
-        print(f"Error extracting text from {filename}: {e}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Error extracting text from {filename}: {e}", file=sys.stderr)
         raise
     
     return document_blocks, document_raw_text
@@ -94,7 +91,8 @@ def extract_text_from_pdf_path(pdf_path: Path) -> Tuple[List[Dict], str]:
         doc.close()
         return result
     except Exception as e:
-        print(f"Error opening PDF from path {pdf_path}: {e}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Error opening PDF from path {pdf_path}: {e}", file=sys.stderr)
         raise
 
 
@@ -107,7 +105,8 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes, filename: str = "memory.pdf") 
         doc.close()
         return result
     except Exception as e:
-        print(f"Error opening PDF from memory: {e}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Error opening PDF from memory: {e}", file=sys.stderr)
         raise
 
 
@@ -153,7 +152,8 @@ def save_json_output(json_data: Dict, output_path: Union[str, Path]) -> None:
     output_path = Path(output_path)
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(json_data, f, indent=2, ensure_ascii=False)
-    print(f"Saved JSON output to {output_path}", file=sys.stderr)
+    if not is_silent_mode():
+        print(f"Saved JSON output to {output_path}", file=sys.stderr)
 
 
 def convert_pdf_from_path(pdf_path: Union[str, Path], save_output: bool = False, 
@@ -205,7 +205,8 @@ def convert_pdf_from_path(pdf_path: Union[str, Path], save_output: bool = False,
         return json_data
     
     except Exception as e:
-        print(f"Error converting {pdf_path} to JSON: {e}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Error converting {pdf_path} to JSON: {e}", file=sys.stderr)
         raise
 
 
@@ -247,71 +248,150 @@ def convert_pdf_from_bytes(pdf_bytes: bytes, filename: str = "memory.pdf",
         return json_data
     
     except Exception as e:
-        print(f"Error converting PDF from memory to JSON: {e}", file=sys.stderr)
+        if not is_silent_mode():
+            print(f"Error converting PDF from memory to JSON: {e}", file=sys.stderr)
         raise
+
+
+def is_silent_mode() -> bool:
+    """Check if the program is running in silent mode."""
+    return "--silent" in sys.argv
+
+
+def read_binary_stdin() -> bytes:
+    """Read binary data from stdin, handling potential protocol messages."""
+    try:
+        # For Chrome extension native messaging, message format includes 4-byte length prefix
+        if "--native-messaging" in sys.argv:
+            # Read the message length (first 4 bytes)
+            length_bytes = sys.stdin.buffer.read(4)
+            if len(length_bytes) == 4:
+                # Unpack length as a uint32 (little-endian)
+                message_length = int.from_bytes(length_bytes, byteorder='little')
+                # Read the actual message
+                return sys.stdin.buffer.read(message_length)
+        
+        # Standard binary input (full stdin)
+        return sys.stdin.buffer.read()
+    except Exception as e:
+        if not is_silent_mode():
+            print(f"Error reading from stdin: {e}", file=sys.stderr)
+        return b''
+
+
+def write_native_message(json_data: Dict) -> None:
+    """Write JSON with appropriate format for Chrome native messaging."""
+    message_bytes = json.dumps(json_data).encode('utf-8')
+    # Write message length as uint32 (little-endian)
+    sys.stdout.buffer.write(len(message_bytes).to_bytes(4, byteorder='little'))
+    # Write the message
+    sys.stdout.buffer.write(message_bytes)
+    sys.stdout.buffer.flush()
 
 
 def main():
     """Main entry point for the program"""
     
-    # Check if stdin flag is present (for reading binary from stdin)
-    is_stdin_mode = "--stdin" in sys.argv
-    
-    # Check if we should suppress stdout for direct drag-and-drop usage
-    suppress_stdout = getattr(sys, 'frozen', False) and not is_stdin_mode and len(sys.argv) <= 2
-    
-    # If stdin mode, read PDF from stdin
-    if is_stdin_mode:
-        try:
-            # Read binary data from stdin
-            pdf_bytes = sys.stdin.buffer.read()
-            output_path = None
-            
-            # Check if an output path was specified
-            for i, arg in enumerate(sys.argv):
-                if arg != "--stdin" and not arg.startswith("-") and i > 0:
-                    output_path = arg
-                    break
-            
-            # Process the bytes
-            json_data = convert_pdf_from_bytes(pdf_bytes, save_output=bool(output_path), output_path=output_path)
-            
-            # Print JSON to stdout (unless suppressed)
-            if not suppress_stdout:
-                print(json.dumps(json_data))
-                
-            print("Conversion from stdin completed successfully.", file=sys.stderr)
-        except Exception as e:
-            print(f"Error processing PDF from stdin: {e}", file=sys.stderr)
-    
-    # Regular file mode
-    elif len(sys.argv) >= 2:
-        pdf_path = sys.argv[1]
-        output_path = sys.argv[2] if len(sys.argv) > 2 else None
-        
-        try:
-            # When run as a command-line tool, save the output by default for file paths
-            json_data = convert_pdf_from_path(pdf_path, save_output=True, output_path=output_path)
-            
-            # Print JSON to stdout (unless suppressed)
-            if not suppress_stdout:
-                print(json.dumps(json_data))
-                
-            print("Conversion completed successfully.", file=sys.stderr)
-        except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
-    
-    # No arguments provided
-    else:
+    # Handle --help flag
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("PDF to JSON Converter")
         print("Usage:")
         print("  pdf_converter_single.py input.pdf [output.json]")
         print("  cat input.pdf | pdf_converter_single.py --stdin [output.json]")
-        print("  or drag and drop a PDF file onto the executable")
+        print("  pdf_converter_single.py --stdin --silent")
+        print("  pdf_converter_single.py --stdin --native-messaging")
+        print("\nOptions:")
+        print("  --silent          Run without console output messages")
+        print("  --stdin           Read PDF from standard input")
+        print("  --native-messaging Use Chrome extension native messaging format")
+        if getattr(sys, 'frozen', False):
+            input("Press Enter to exit...")
+        return 0
     
-    # If likely run by double clicking, wait for input before closing
-    if getattr(sys, 'frozen', False):
+    # Check for silent mode flag (this suppresses console output)
+    silent_mode = is_silent_mode()
+    
+    # Check for native messaging format
+    native_messaging = "--native-messaging" in sys.argv
+    
+    try:
+        # Handle stdin mode (for processing bytes)
+        if "--stdin" in sys.argv:
+            # Read PDF data from stdin
+            pdf_bytes = read_binary_stdin()
+            if not pdf_bytes:
+                if not silent_mode:
+                    print("Error: No data received from stdin", file=sys.stderr)
+                return 1
+            
+            output_path = None
+            # Check if an output path was specified
+            for i, arg in enumerate(sys.argv):
+                if arg not in ["--stdin", "--silent", "--native-messaging"] and not arg.startswith("-") and i > 0:
+                    output_path = arg
+                    break
+            
+            # Process PDF bytes
+            json_data = convert_pdf_from_bytes(
+                pdf_bytes, 
+                filename="stdin.pdf",
+                save_output=bool(output_path), 
+                output_path=output_path
+            )
+            
+            # Output result
+            if native_messaging:
+                write_native_message(json_data)
+            else:
+                print(json.dumps(json_data))
+            
+            if not silent_mode:
+                print("Conversion from stdin completed successfully.", file=sys.stderr)
+            
+        # Handle file path mode
+        elif len(sys.argv) >= 2 and not sys.argv[1].startswith("-"):
+            pdf_path = sys.argv[1]
+            output_path = None
+            
+            # Find output path if specified
+            for i, arg in enumerate(sys.argv[2:], 2):
+                if not arg.startswith("-"):
+                    output_path = arg
+                    break
+            
+            # Process PDF file
+            json_data = convert_pdf_from_path(
+                pdf_path, 
+                save_output=True, 
+                output_path=output_path
+            )
+            
+            # Output result
+            if native_messaging:
+                write_native_message(json_data)
+            else:
+                print(json.dumps(json_data))
+            
+            if not silent_mode:
+                print("Conversion completed successfully.", file=sys.stderr)
+            
+        # No valid input specified
+        else:
+            if not silent_mode:
+                print("Error: No input specified. Use --help for usage information.", file=sys.stderr)
+            return 1
+        
+    except Exception as e:
+        if not silent_mode:
+            print(f"Error: {e}", file=sys.stderr)
+        return 1
+    
+    # Wait for user input if run by double-clicking (unless in silent mode)
+    if getattr(sys, 'frozen', False) and not silent_mode and not native_messaging:
         input("Press Enter to exit...")
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
