@@ -4,35 +4,69 @@
   <title>PDF to JSON Converter</title>
   <style>
     body {
-      width: 250px;
+      width: 600px;
+      height: 400px;
       padding: 15px;
       font-family: Arial, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    h2 {
+      color: #333;
+      margin-top: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      overflow: hidden;
+    }
+    #statusContainer {
+      padding: 10px;
+      margin-bottom: 10px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+    }
+    #status {
+      color: #666;
+    }
+    .buttons {
+      margin-bottom: 10px;
     }
     button {
-      width: 100%;
-      padding: 10px;
+      padding: 8px 15px;
       background-color: #4285f4;
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      margin-bottom: 10px;
+      margin-right: 10px;
     }
     button:hover {
       background-color: #3367d6;
     }
-    #status {
-      color: #666;
-      text-align: center;
-      font-size: 14px;
-      margin-top: 10px;
+    pre {
+      flex-grow: 1;
+      overflow: auto;
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      font-size: 12px;
+      line-height: 1.4;
+      margin: 0;
     }
   </style>
 </head>
 <body>
   <h2>PDF to JSON Converter</h2>
-  <button id="convertBtn">Convert PDF to JSON</button>
-  <div id="status">Ready</div>
+  <div class="container">
+    <div id="statusContainer">
+      <div id="status">Processing PDF...</div>
+    </div>
+    <pre id="jsonOutput">Loading...</pre>
+  </div>
   <script src="popup.js" type="module"></script>
 </body>
 </html>
