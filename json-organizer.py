@@ -235,6 +235,7 @@ def create_summary_json(organized_data):
     return summary
 
 
+# Test
 if __name__ == "__main__":
     json_data = load_json(DEFAULT_TEST_PATH)
     organized_data = organize_json(json_data)
@@ -243,3 +244,7 @@ if __name__ == "__main__":
 
     # Print the summary
     print(json.dumps(summary_data, indent=4, ensure_ascii=False))
+
+
+# TODO: standardize key format. Maybe always remove spaces and newlines and : from keys in the resulting json. 
+# This could be done at the level of the pdf converter
