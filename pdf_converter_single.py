@@ -304,7 +304,9 @@ def main():
         print("  --silent          Run without console output messages")
         print("  --stdin           Read PDF from standard input")
         print("  --native-messaging Use Chrome extension native messaging format")
-        if getattr(sys, 'frozen', False):
+        
+        # Don't try to use input() in windowed mode
+        if getattr(sys, 'frozen', False) and sys.stdin and sys.stdin.isatty():
             input("Press Enter to exit...")
         return 0
     
@@ -388,7 +390,9 @@ def main():
     
     # Wait for user input if run by double-clicking (unless in silent mode)
     if getattr(sys, 'frozen', False) and not silent_mode and not native_messaging:
-        input("Press Enter to exit...")
+        # Only use input() if stdin is available and attached to a console
+        if sys.stdin and sys.stdin.isatty():
+            input("Press Enter to exit...")
     
     return 0
 
