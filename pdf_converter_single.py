@@ -30,7 +30,7 @@ def extract_text_from_pdf_doc(doc: fitz.Document, filename: str = "unknown.pdf")
         filename: Original filename for reference
         
     Returns:
-        List of dictionaries containing text lines and their positions
+        List of dictionaries containing text blocks and their positions
         String containing all the raw text in the pdf file
     """
     document_blocks: List[Dict] = []
@@ -65,8 +65,8 @@ def extract_text_from_pdf_doc(doc: fitz.Document, filename: str = "unknown.pdf")
         document_blocks.sort(key=sort_key)
 
         # Set block numbers after sorting
-        for block_num, block in enumerate(document_blocks, 1):
-            block["line_num"] = block_num
+        for block_index, block in enumerate(document_blocks):
+            block["block_index"] = block_index
 
         # Build document_raw_text from blocks
         for block in document_blocks:
@@ -110,13 +110,13 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes, filename: str = "memory.pdf") 
         raise
 
 
-def create_json_structure(document_lines: List[Dict], document_raw_text: str, 
+def create_json_structure(document_blocks: List[Dict], document_raw_text: str, 
                           metadata: Dict[str, Any]) -> Dict:
     """
     Create the standardized JSON structure for PDF content.
     
     Args:
-        document_lines: List of text blocks/lines with position data
+        document_blocks: List of text blocks with position data
         document_raw_text: Raw text content as a single string
         metadata: Dictionary containing file metadata
     
@@ -127,10 +127,10 @@ def create_json_structure(document_lines: List[Dict], document_raw_text: str,
         "metadata": {
             **metadata,
             "processed_date": datetime.datetime.now().isoformat(),
-            "page_count": len(set(block["page"] for block in document_lines)) if document_lines else 0,
+            "page_count": len(set(block["page"] for block in document_blocks)) if document_blocks else 0,
         },
         "content": {
-            "lines": document_lines,
+            "blocks": document_blocks,
             "raw": document_raw_text
         },
         "annotations": {
@@ -177,7 +177,7 @@ def convert_pdf_from_path(pdf_path: Union[str, Path], save_output: bool = False,
             file_hash = hashlib.md5(f.read()).hexdigest()
         
         # Extract text content
-        document_lines, document_raw_text = extract_text_from_pdf_path(pdf_path)
+        document_blocks, document_raw_text = extract_text_from_pdf_path(pdf_path)
         
         # Create metadata dictionary
         metadata = {
@@ -187,7 +187,7 @@ def convert_pdf_from_path(pdf_path: Union[str, Path], save_output: bool = False,
         }
         
         # Create JSON structure
-        json_data = create_json_structure(document_lines, document_raw_text, metadata)
+        json_data = create_json_structure(document_blocks, document_raw_text, metadata)
         
         # Save JSON if requested
         if save_output:
@@ -229,7 +229,7 @@ def convert_pdf_from_bytes(pdf_bytes: bytes, filename: str = "memory.pdf",
         file_hash = hashlib.md5(pdf_bytes).hexdigest()
         
         # Extract text content
-        document_lines, document_raw_text = extract_text_from_pdf_bytes(pdf_bytes, filename)
+        document_blocks, document_raw_text = extract_text_from_pdf_bytes(pdf_bytes, filename)
         
         # Create metadata dictionary
         metadata = {
@@ -239,7 +239,7 @@ def convert_pdf_from_bytes(pdf_bytes: bytes, filename: str = "memory.pdf",
         }
         
         # Create JSON structure
-        json_data = create_json_structure(document_lines, document_raw_text, metadata)
+        json_data = create_json_structure(document_blocks, document_raw_text, metadata)
         
         # Save JSON if requested
         if save_output and output_path:
