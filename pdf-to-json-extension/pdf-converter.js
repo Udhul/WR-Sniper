@@ -121,8 +121,8 @@ export async function convertPdfToJson(pdfBuffer, filename = 'document.pdf') {
     const pdfDoc = await loadingTask.promise;
     
     // Extract text content
-    const { blocks: documentLines, rawText: documentRawText } = await extractTextFromPdf(pdfDoc);
-    
+    const { blocks: documentBlocks, rawText: documentRawText } = await extractTextFromPdf(pdfDoc);
+   
     // Create metadata
     const metadata = {
       filename: filename,
@@ -136,7 +136,7 @@ export async function convertPdfToJson(pdfBuffer, filename = 'document.pdf') {
     const jsonData = {
       metadata: metadata,
       content: {
-        lines: documentLines,
+        blocks: documentBlocks,
         raw: documentRawText
       },
       annotations: {
