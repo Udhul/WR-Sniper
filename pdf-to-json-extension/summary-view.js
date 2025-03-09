@@ -1,5 +1,5 @@
 /**
- * Creates a visual representation of the summarized JSON data
+ * Creates a compact visual representation of the summarized JSON data
  * @param {Object} summaryData - The summarized JSON data from json-organizer
  * @param {HTMLElement} container - The container element to render the summary in
  */
@@ -8,84 +8,82 @@ export function renderSummaryView(summaryData, container) {
     container.innerHTML = '';
     container.classList.add('summary-view');
     
-    // Add main header
-    const mainHeader = document.createElement('h2');
-    mainHeader.textContent = 'Service Summary';
-    container.appendChild(mainHeader);
-    
-    // Add basic information section
+    // Add basic information at the top
     const basicInfo = document.createElement('div');
-    basicInfo.classList.add('info-section');
+    basicInfo.classList.add('basic-info');
+  
+    // Subscriber address
+    const addressDiv = document.createElement('div');
+    addressDiv.innerHTML = `<span>Subscriber:</span> ${summaryData["Subscriber address"] || "Not specified"}`;
+    basicInfo.appendChild(addressDiv);
     
-    const addressHeader = document.createElement('h3');
-    addressHeader.textContent = 'Subscriber Address';
-    basicInfo.appendChild(addressHeader);
-    
-    const addressValue = document.createElement('p');
-    addressValue.textContent = summaryData["Subscriber address"] || "Not specified";
-    basicInfo.appendChild(addressValue);
-    
-    const lidHeader = document.createElement('h3');
-    lidHeader.textContent = 'Service ID';
-    basicInfo.appendChild(lidHeader);
-    
-    const lidValue = document.createElement('p');
-    lidValue.textContent = summaryData["LID"] || "Not specified";
-    basicInfo.appendChild(lidValue);
+    // Service ID
+    const lidDiv = document.createElement('div');
+    lidDiv.innerHTML = `<span>Service ID:</span> ${summaryData["LID"] || "Not specified"}`;
+    basicInfo.appendChild(lidDiv);
     
     container.appendChild(basicInfo);
     
     // Add Flexibility Points section
-    const fpHeader = document.createElement('h3');
-    fpHeader.textContent = 'Flexibility Points';
-    container.appendChild(fpHeader);
+    const fpList = document.createElement('div');
+    fpList.classList.add('fp-list');
     
     // If no flexibility points, show a message
     if (!summaryData["Flexibility Points"] || summaryData["Flexibility Points"].length === 0) {
       const noFpMsg = document.createElement('p');
       noFpMsg.textContent = 'No flexibility points found in this document.';
-      container.appendChild(noFpMsg);
+      noFpMsg.style.textAlign = 'center';
+      noFpMsg.style.color = '#5f6368';
+      noFpMsg.style.padding = '20px';
+      fpList.appendChild(noFpMsg);
+      container.appendChild(fpList);
       return;
     }
     
-    // Create an accordion for flexibility points
-    const fpAccordion = document.createElement('div');
-    fpAccordion.classList.add('accordion');
-    
-    // Process each flexibility point
+    // Process each flexibility point - all expanded by default
     summaryData["Flexibility Points"].forEach((fp, index) => {
-      // Create accordion item
       const fpItem = document.createElement('div');
-      fpItem.classList.add('accordion-item');
+      fpItem.classList.add('fp-item');
       
-      // Create header that toggles content
-      const fpToggle = document.createElement('div');
-      fpToggle.classList.add('accordion-header');
-      fpToggle.textContent = `${fp.name}`;
-      if (fp.address) {
-        const fpAddress = document.createElement('span');
-        fpAddress.classList.add('fp-address');
-        fpAddress.textContent = ` (${fp.address})`;
-        fpToggle.appendChild(fpAddress);
-      }
-      fpToggle.addEventListener('click', () => {
-        fpContent.classList.toggle('expanded');
-        fpToggle.classList.toggle('active');
+      // Create header
+      const fpHeader = document.createElement('div');
+      fpHeader.classList.add('fp-header');
+      
+      const titleSpan = document.createElement('span');
+      titleSpan.classList.add('fp-title');
+      titleSpan.textContent = fp.name;
+      fpHeader.appendChild(titleSpan);
+      
+      // Add toggle functionality
+      fpHeader.addEventListener('click', () => {
+        fpContent.style.display = fpContent.style.display === 'none' ? 'block' : 'none';
       });
       
-      // Create content container
+      // Create content container - expanded by default
       const fpContent = document.createElement('div');
-      fpContent.classList.add('accordion-content');
+      fpContent.classList.add('fp-content');
+      
+      // Add address if available
+      if (fp.address) {
+        const addressInfo = document.createElement('div');
+        addressInfo.classList.add('fp-address');
+        addressInfo.textContent = `Address: ${fp.address}`;
+        fpContent.appendChild(addressInfo);
+      }
       
       // Add actions to content
       if (Object.keys(fp.actions).length === 0) {
         const noActions = document.createElement('p');
         noActions.textContent = 'No specific actions defined for this flexibility point.';
+        noActions.style.color = '#5f6368';
+        noActions.style.fontStyle = 'italic';
+        noActions.style.fontSize = '12px';
         fpContent.appendChild(noActions);
       } else {
         // Process each action type
         for (const [actionType, actionDetails] of Object.entries(fp.actions)) {
-          const actionHeader = document.createElement('h4');
+          const actionHeader = document.createElement('div');
+          actionHeader.classList.add('action-header');
           actionHeader.textContent = actionType;
           fpContent.appendChild(actionHeader);
           
@@ -113,12 +111,12 @@ export function renderSummaryView(summaryData, container) {
         }
       }
       
-      // Assemble the accordion item
-      fpItem.appendChild(fpToggle);
+      // Assemble the item
+      fpItem.appendChild(fpHeader);
       fpItem.appendChild(fpContent);
-      fpAccordion.appendChild(fpItem);
+      fpList.appendChild(fpItem);
     });
     
-    container.appendChild(fpAccordion);
+    container.appendChild(fpList);
   }
   
