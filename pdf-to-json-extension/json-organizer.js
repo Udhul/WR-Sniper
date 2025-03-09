@@ -188,20 +188,30 @@ export function createSummaryJson(organizedData) {
         const fpSummary = {
             "name": fpTitle,
             "address": "",
+            "position": "",
+            "remark": "",
             "actions": {}
         };
 
-        // Find address in info blocks.
+        // Find address, position, and remark in info blocks
         for (let i = 0; i < fpData.info.length; i++) {
             const block = fpData.info[i];
             const lines = Array.isArray(block) ? block : (block.lines || []);
+            
             for (let j = 0; j < lines.length; j++) {
+                // Look for address line
                 if (lines[j].startsWith("Address") && j + 1 < lines.length) {
                     fpSummary["address"] = lines[j + 1];
-                    break;
+                }
+                // Look for Position line
+                else if (lines[j].startsWith("Position") && j + 1 < lines.length) {
+                    fpSummary["position"] = lines[j + 1];
+                }
+                // Look for Remark line
+                else if (lines[j].startsWith("Remark") && j + 1 < lines.length) {
+                    fpSummary["remark"] = lines[j + 1];
                 }
             }
-            if (fpSummary["address"]) break;
         }
 
         // Get state sections whose header contains "Add ", "Connect ", or "Remove ".
@@ -229,6 +239,15 @@ export function createSummaryJson(organizedData) {
                     }
                 }
                 fpSummary["actions"][header] = actionContent;
+            }
+        }
+
+        // Remove empty info fields
+        for (const key in fpSummary) {
+            if (fpSummary[key] === "" || 
+                (typeof fpSummary[key] === 'object' && 
+                 Object.keys(fpSummary[key]).length === 0)) {
+                delete fpSummary[key];
             }
         }
 

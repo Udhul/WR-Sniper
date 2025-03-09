@@ -63,16 +63,23 @@ export function renderSummaryView(summaryData, container) {
       const fpContent = document.createElement('div');
       fpContent.classList.add('fp-content');
       
-      // Add address if available
-      if (fp.address) {
-        const addressInfo = document.createElement('div');
-        addressInfo.classList.add('fp-address');
-        addressInfo.textContent = `Address: ${fp.address}`;
-        fpContent.appendChild(addressInfo);
+      // Add all flexibility point info fields (except name and actions)
+      for (const key in fp) {
+        // Skip name and actions as they're handled separately
+        if (key !== 'name' && key !== 'actions') {
+          const infoDiv = document.createElement('div');
+          infoDiv.classList.add('fp-info');
+          
+          // Format key with capitalized first letter
+          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
+          infoDiv.textContent = `${formattedKey}: ${fp[key]}`;
+          
+          fpContent.appendChild(infoDiv);
+        }
       }
       
       // Add actions to content
-      if (Object.keys(fp.actions).length === 0) {
+      if (!fp.actions || Object.keys(fp.actions).length === 0) {
         const noActions = document.createElement('p');
         noActions.textContent = 'No specific actions defined for this flexibility point.';
         noActions.style.color = '#5f6368';

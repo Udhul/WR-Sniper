@@ -180,6 +180,8 @@ def create_summary_json(organized_data):
         fp_summary = {
             "name": fp_title,
             "address": "",
+            "position": "",
+            "remark": "",
             "actions": {}
         }
         
@@ -190,9 +192,16 @@ def create_summary_json(organized_data):
             
             # Look for address line
             for i, line in enumerate(lines):
-                if line.startswith("Address: ") and i+1 < len(lines):
+                if line.startswith("Address") and i+1 < len(lines):
                     fp_summary["address"] = lines[i+1]
-                    break
+
+                # Look for Position line
+                elif line.startswith("Position") and i+1 < len(lines):
+                    fp_summary["position"] = lines[i+1]
+
+                # Look for Remark line
+                elif line.startswith("Remark") and i+1 < len(lines):
+                    fp_summary["remark"] = lines[i+1]
         
         # Get relevant state sections (Add, Connect, Remove)
         for header, section in fp_data.get("state_sections", {}).items():
@@ -223,6 +232,11 @@ def create_summary_json(organized_data):
                 # Add the organized content to the actions dictionary
                 fp_summary["actions"][header] = action_content
         
+        # Remove empty info fields
+        for key in list(fp_summary.keys()):
+            if not fp_summary[key]:
+                del fp_summary[key]
+
         # Add to summary
         summary["Flexibility Points"].append(fp_summary)
     
