@@ -1,6 +1,5 @@
 import json
 
-DEFAULT_TEST_PATH = "D:\Projects\AI\WR-Dataset\pdf\P-01338126-WR.json"
 
 
 def load_json(file_path: str) -> dict:
@@ -262,10 +261,19 @@ def clean_structure(organized_data):
 
 # Test
 if __name__ == "__main__":
+    DEFAULT_TEST_PATH = r"D:\Projects\AI\WR-Dataset\pdf\P-01649507-WR.json"
     json_data = load_json(DEFAULT_TEST_PATH)
     organized_data = organize_json(json_data)
     # cleaned_data = clean_structure(organized_data)
     summary_data = create_summary_json(organized_data)
+
+
+    # pring json data
+    # del json_data["content"]["raw"]
+    # print(json.dumps(json_data, indent=4, ensure_ascii=False))
+
+    # pring organized data
+    # print(json.dumps(organized_data, indent=4, ensure_ascii=False))
 
     # Print the summary
     print(json.dumps(summary_data, indent=4, ensure_ascii=False))
