@@ -176,7 +176,7 @@ class PDFConverter:
         """
         try:
             # Extract file metadata
-            file_hash = hashlib.md5(open(pdf_path, 'rb').read()).hexdigest()
+            file_hash = hashlib.sha256(open(pdf_path, 'rb').read()).hexdigest()
             filename = pdf_path.name
             
             # Calculate relative path if base_dir is provided

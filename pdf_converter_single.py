@@ -174,7 +174,7 @@ def convert_pdf_from_path(pdf_path: Union[str, Path], save_output: bool = False,
     try:
         # Extract file metadata
         with open(pdf_path, 'rb') as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()
+            file_hash = hashlib.sha256(f.read()).hexdigest()
         
         # Extract text content
         document_blocks, document_raw_text = extract_text_from_pdf_path(pdf_path)
@@ -226,7 +226,7 @@ def convert_pdf_from_bytes(pdf_bytes: bytes, filename: str = "memory.pdf",
     """
     try:
         # Extract file metadata
-        file_hash = hashlib.md5(pdf_bytes).hexdigest()
+        file_hash = hashlib.sha256(pdf_bytes).hexdigest()
         
         # Extract text content
         document_blocks, document_raw_text = extract_text_from_pdf_bytes(pdf_bytes, filename)
