@@ -1,12 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-# pyinstaller --clean pdf_converter_single.spec
+# pyinstaller --clean pdf_converter.spec
 
 
 block_cipher = None
 
 a = Analysis(
-    ['pdf_converter_single.py'],
+    ['pdf_converter.py'],
     pathex=[],
     binaries=[],
     datas=[],
@@ -30,7 +30,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='pdf_converter_single',
+    name='pdf_converter',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
