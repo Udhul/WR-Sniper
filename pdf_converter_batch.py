@@ -31,6 +31,8 @@ import fitz  # PyMuPDF for text extraction
 from fitz import Document, Page
 from tqdm import tqdm
 
+import pdf_converter # Use the functions from local module pdf_converter.py
+
 # File names which overlap with system files in the destination folder
 DISALLOWED_FILE_NAMES = ["index", "config", "db", "log", "error", "temp", "backup", "label", "labels", "json"]
 
@@ -91,77 +93,20 @@ class PDFConverter:
     
     def extract_text_from_pdf(self, pdf_path: Path) -> Tuple[List[Dict], str]:
         """
-        Extract text content from PDF, preserving line breaks.
+        Extract text content from PDF using pdf_converter.extract_text_from_pdf_path
         
         Args:
             pdf_path: Path to PDF file
-            
+                
         Returns:
-            List of dictionaries containing text lines and their positions
-            String containing all the raw text in the pdf file, concatenated using newline character '\n'.
+            List of dictionaries containing text blocks and their positions
+            String containing all the raw text in the pdf file
         """
-        document_blocks: List[Dict] = []
-
         try:
-            # Open the PDF with PyMuPDF
-            doc:Document = fitz.open(str(pdf_path))
-
-            # Process each page, storing blocks
-            for page_num, page in enumerate(doc):
-                page:Page
-                
-                # Get text blocks with position information
-                blocks = page.get_text("blocks")
-
-                # Process each block
-                for block in blocks:
-                    text = block[4].strip("\n") # Block text in one string (strip beginning and ending newlines)
-                    current_block_dict = {
-                        "page": page_num + 1,
-                        "lines": text.split("\n"),
-                        # "text": text,
-                        "position": block[:4],
-                        # "table": {} # To be populated by blocks with multiple lines (they correspond to a table in the original pdf)
-                    }
-                    # texts = text.split("\n") # Create a list of lines from the block text
-                    # if len(texts) > 1:
-                    #     current_block_dict["table"] = {
-                    #         "key": texts[0], # First cell in the table row (key, explains the subject of the cell data)
-                    #         "value": texts[1], # second list item (for this pdf dataset, there would normally only be two table cells in a table row)
-                    #         "values": texts[1:] # In case there are more than 2 cells, all value cells can be accessed here
-                    #     } # TODO: Maybe make the table "value" just be either a str or list depending on whether there are multiple value cells, and drop "values" as it create repeated data storage
-                    document_blocks.append(current_block_dict)
-            
-            # Sort blocks by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
-            def sort_key(block):
-                page = block.get("page", 0)
-                position = block.get("position")
-                # If position is available, use y-coordinate (position[1]) and x-coordinate (position[0])
-                if position:
-                    return (page, position[1], position[0])
-                else:
-                    logger.error(f"Missing position information for block: {block}")
-                    return (page, 0, 0)
-            
-            # Sort document blocks
-            document_blocks.sort(key=sort_key)
-
-            # Set block numbers after sorting
-            for block_index, block in enumerate(document_blocks):
-                block["block_index"] = block_index
-
-            # Build document_raw_text from blocks text lines
-            document_raw_text = ""
-            for block in document_blocks:
-                document_raw_text += "\n".join(t for t in block["texts"]) + "\n"
-            document_raw_text = document_raw_text.rstrip("\n")
-                
-            doc.close()
-            logger.info(f"Extracted {len(document_blocks)} text blocks from {pdf_path}")
+            return pdf_converter.extract_text_from_pdf_path(pdf_path)
         except Exception as e:
             logger.error(f"Error extracting text from {pdf_path}: {e}")
-        
-        return document_blocks, document_raw_text
+            raise
 
     def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
         """
@@ -170,14 +115,14 @@ class PDFConverter:
         Args:
             pdf_path: Path to the PDF file
             base_dir: Optional base directory for calculating relative file paths
-            
+                
         Returns:
             Dictionary containing structured PDF content
         """
         try:
             # Extract file metadata
-            file_hash = hashlib.sha256(open(pdf_path, 'rb').read()).hexdigest()
-            filename = pdf_path.name
+            with open(pdf_path, 'rb') as f:
+                file_hash = hashlib.sha256(f.read()).hexdigest()
             
             # Calculate relative path if base_dir is provided
             if base_dir:
@@ -188,34 +133,150 @@ class PDFConverter:
             else:
                 file_path = str(pdf_path)
             
-            # Extract text content with line breaks preserved
+            # Extract text content with blocks and positions preserved
             document_blocks, document_raw_text = self.extract_text_from_pdf(pdf_path)
             
-            # Create JSON structure
-            json_data = {
-                "metadata": {
-                    "filename": filename,
-                    "file_path": file_path,
-                    "file_hash": file_hash,
-                    "processed_date": datetime.datetime.now().isoformat(),
-                    "page_count": len(set(block["page"] for block in document_blocks)) if document_blocks else 0,
-                },
-                "content": {
-                    "lines": document_blocks,
-                    "raw": document_raw_text
-                },
-                "annotations": {
-                    "labeled": False,
-                    "relevant_lines": [],
-                    "extracted_data": {}
-                }
+            # Create metadata dictionary
+            metadata = {
+                "filename": pdf_path.name,
+                "file_path": file_path,
+                "file_hash": file_hash,
             }
             
-            return json_data
+            # Use the shared function to create the JSON structure
+            return pdf_converter.create_json_structure(document_blocks, document_raw_text, metadata)
         
         except Exception as e:
             logger.error(f"Error converting {pdf_path} to JSON: {e}")
             raise
+
+    # def extract_text_from_pdf(self, pdf_path: Path) -> Tuple[List[Dict], str]:
+    #     """
+    #     Extract text content from PDF, preserving line breaks.
+        
+    #     Args:
+    #         pdf_path: Path to PDF file
+            
+    #     Returns:
+    #         List of dictionaries containing text lines and their positions
+    #         String containing all the raw text in the pdf file, concatenated using newline character '\n'.
+    #     """
+    #     document_blocks: List[Dict] = []
+
+    #     try:
+    #         # Open the PDF with PyMuPDF
+    #         doc:Document = fitz.open(str(pdf_path))
+
+    #         # Process each page, storing blocks
+    #         for page_num, page in enumerate(doc):
+    #             page:Page
+                
+    #             # Get text blocks with position information
+    #             blocks = page.get_text("blocks")
+
+    #             # Process each block
+    #             for block in blocks:
+    #                 text = block[4].strip("\n") # Block text in one string (strip beginning and ending newlines)
+    #                 current_block_dict = {
+    #                     "page": page_num + 1,
+    #                     "lines": text.split("\n"),
+    #                     # "text": text,
+    #                     "position": block[:4],
+    #                     # "table": {} # To be populated by blocks with multiple lines (they correspond to a table in the original pdf)
+    #                 }
+    #                 # texts = text.split("\n") # Create a list of lines from the block text
+    #                 # if len(texts) > 1:
+    #                 #     current_block_dict["table"] = {
+    #                 #         "key": texts[0], # First cell in the table row (key, explains the subject of the cell data)
+    #                 #         "value": texts[1], # second list item (for this pdf dataset, there would normally only be two table cells in a table row)
+    #                 #         "values": texts[1:] # In case there are more than 2 cells, all value cells can be accessed here
+    #                 #     } # TODO: Maybe make the table "value" just be either a str or list depending on whether there are multiple value cells, and drop "values" as it create repeated data storage
+    #                 document_blocks.append(current_block_dict)
+            
+    #         # Sort blocks by page, then by y-coordinate (position[1]), then by x-coordinate (position[0])
+    #         def sort_key(block):
+    #             page = block.get("page", 0)
+    #             position = block.get("position")
+    #             # If position is available, use y-coordinate (position[1]) and x-coordinate (position[0])
+    #             if position:
+    #                 return (page, position[1], position[0])
+    #             else:
+    #                 logger.error(f"Missing position information for block: {block}")
+    #                 return (page, 0, 0)
+            
+    #         # Sort document blocks
+    #         document_blocks.sort(key=sort_key)
+
+    #         # Set block numbers after sorting
+    #         for block_index, block in enumerate(document_blocks):
+    #             block["block_index"] = block_index
+
+    #         # Build document_raw_text from blocks text lines
+    #         document_raw_text = ""
+    #         for block in document_blocks:
+    #             document_raw_text += "\n".join(t for t in block["texts"]) + "\n"
+    #         document_raw_text = document_raw_text.rstrip("\n")
+                
+    #         doc.close()
+    #         logger.info(f"Extracted {len(document_blocks)} text blocks from {pdf_path}")
+    #     except Exception as e:
+    #         logger.error(f"Error extracting text from {pdf_path}: {e}")
+        
+    #     return document_blocks, document_raw_text
+
+    # def convert_pdf_to_json(self, pdf_path: Path, base_dir: Path = None) -> Dict:
+    #     """
+    #     Convert a PDF file to a structured JSON format.
+        
+    #     Args:
+    #         pdf_path: Path to the PDF file
+    #         base_dir: Optional base directory for calculating relative file paths
+            
+    #     Returns:
+    #         Dictionary containing structured PDF content
+    #     """
+    #     try:
+    #         # Extract file metadata
+    #         file_hash = hashlib.sha256(open(pdf_path, 'rb').read()).hexdigest()
+    #         filename = pdf_path.name
+            
+    #         # Calculate relative path if base_dir is provided
+    #         if base_dir:
+    #             try:
+    #                 file_path = str(pdf_path.relative_to(base_dir))
+    #             except ValueError:
+    #                 file_path = str(pdf_path)
+    #         else:
+    #             file_path = str(pdf_path)
+            
+    #         # Extract text content with line breaks preserved
+    #         document_blocks, document_raw_text = self.extract_text_from_pdf(pdf_path)
+            
+    #         # Create JSON structure
+    #         json_data = {
+    #             "metadata": {
+    #                 "filename": filename,
+    #                 "file_path": file_path,
+    #                 "file_hash": file_hash,
+    #                 "processed_date": datetime.datetime.now().isoformat(),
+    #                 "page_count": len(set(block["page"] for block in document_blocks)) if document_blocks else 0,
+    #             },
+    #             "content": {
+    #                 "lines": document_blocks,
+    #                 "raw": document_raw_text
+    #             },
+    #             "annotations": {
+    #                 "labeled": False,
+    #                 "relevant_lines": [],
+    #                 "extracted_data": {}
+    #             }
+    #         }
+            
+    #         return json_data
+        
+    #     except Exception as e:
+    #         logger.error(f"Error converting {pdf_path} to JSON: {e}")
+    #         raise
     
     def save_json(self, json_data: Dict, file_id: str) -> Path:
         """
