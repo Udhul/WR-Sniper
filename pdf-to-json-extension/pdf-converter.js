@@ -9,7 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = './lib/pdf.worker.min.mjs';
  * @param {ArrayBuffer} buffer - The buffer to hash
  * @returns {Promise<string>} - The MD5 hash
  */
-async function calculateMD5(buffer) {
+async function calculateSHA256(buffer) {
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
@@ -114,7 +114,7 @@ async function extractTextFromPdf(pdfDoc) {
 export async function convertPdfToJson(pdfBuffer, filename = 'document.pdf') {
   try {
     // Calculate hash
-    const fileHash = await calculateMD5(pdfBuffer);
+    const fileHash = await calculateSHA256(pdfBuffer);
     
     // Load the PDF document
     const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
