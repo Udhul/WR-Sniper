@@ -257,10 +257,8 @@ function joinLines(lines) {
     // For each block, if its text contains one of the keys and the next block exists,
     // then use the next block’s text as the value.
     for (let i = 0; i < scBlocks.length; i++) {
-      if (foundKeys.size === lineKeys.length) break;
       const block = scBlocks[i];
       for (const key of lineKeys) {
-        if (foundKeys.has(key)) continue;
         if (block.text && block.text.includes(key)) {
           if (i + 1 < scBlocks.length) {
             const value = scBlocks[i + 1].text;
