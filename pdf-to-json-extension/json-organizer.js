@@ -147,7 +147,7 @@ function joinLines(lines) {
         // If candidate starts with key phrases, do not merge.
         if (
           candidate.str.trim().startsWith("Service Configurations") ||
-          candidate.str.trim().startsWith("Service Operations")
+          candidate.str.trim().startsWith("Site Operations")
         ) {
           break;
         }
