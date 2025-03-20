@@ -115,6 +115,34 @@ function joinLines(lines) {
       filtered = filtered.slice(startIndex);
     }
   
+    // Relocate the block "Site Operations" only to before the first flexibility point.
+    const siteOpsBlock = filtered.find(item => item.str.trim().startsWith("Site Operations"));
+    if (siteOpsBlock) {
+      const fpIndex = filtered.findIndex(item => item.str.trim().startsWith("Flexibility point"));
+      if (fpIndex > 0) {
+        // Store the original index of Site Operations
+        const siteOpsIndex = filtered.indexOf(siteOpsBlock);
+        
+        // Only move if Site Operations is not already in the right position
+        if (siteOpsIndex !== fpIndex - 1) {
+          // Remove the Site Operations block from its current position
+          filtered = filtered.filter(item => item !== siteOpsBlock);
+          
+          // Calculate the new insertion index (may have changed after removal)
+          const newFpIndex = filtered.findIndex(item => item.str.trim().startsWith("Flexibility point"));
+          
+          // Insert it right before the first Flexibility point
+          if (newFpIndex > 0) {
+            filtered.splice(newFpIndex, 0, siteOpsBlock);
+          } else if (filtered.length > 0) {
+            // Fallback: if we can't find Flexibility point after removal, add at the end
+            filtered.push(siteOpsBlock);
+          }
+        }
+      }
+    }
+
+    // Prepare to build BLOCKS
     // Mark all items as not used.
     filtered.forEach(item => item.used = false);
   
