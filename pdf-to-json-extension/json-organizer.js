@@ -276,7 +276,7 @@ function joinLines(lines) {
     // --- SERVICE CONFIGURATIONS
     const scStartBlockNo = findBlockNumWithKeyword(blocks, "Service Configurations");
     const siteOpsIndex = findBlockNumWithKeyword(blocks, "Site Operations");
-    const scEndBlockNo = siteOpsIndex !== null ? siteOpsIndex - 1 : blocks.length;
+    const scEndBlockNo = siteOpsIndex !== null ? siteOpsIndex : blocks.length;
     const scBlocks = blocks.slice(scStartBlockNo, scEndBlockNo);
   
     const lineKeys = ["Subscriber address:", "Service ID:"];
@@ -298,10 +298,7 @@ function joinLines(lines) {
     }
   
     // --- SITE OPERATIONS
-    const soStartBlockNo = siteOpsIndex;
-    const fileIndex = findBlockNumWithKeyword(blocks, "file://");
-    const soEndBlockNo = fileIndex !== null ? fileIndex - 1 : blocks.length - 1;
-    const soBlocks = blocks.slice(soStartBlockNo, soEndBlockNo);
+    const soBlocks = blocks.slice(siteOpsIndex, blocks.length);
   
     // Find indices of blocks that begin with "Flexibility point"
     const fpIndices = [];
