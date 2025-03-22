@@ -446,6 +446,9 @@ export function createSummaryJson(organizedData) {
     // Look for Address, Position, and Remark keys in the info section
     const infoObj = fpData.info || {};
     for (const key in infoObj) {
+      // Skip if standardized key is "Service"
+      if (standardizeKey(key) === "Service") continue;
+      
       const lowerKey = key.toLowerCase();
       if (lowerKey.includes("address")) {
         fpSummary["address"] = infoObj[key];
@@ -464,6 +467,8 @@ export function createSummaryJson(organizedData) {
         
         // The section is now a key-value object, not an array of blocks
         for (const key in section) {
+          // Skip if standardized key is "Service"
+          if (standardizeKey(key) === "Service") continue;
           actionContent[key] = section[key];
         }
         
