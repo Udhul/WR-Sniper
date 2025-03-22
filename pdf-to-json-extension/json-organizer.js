@@ -414,101 +414,98 @@ export function organizeJson(jsonData) {
 }
   
 
-  /**
-   * Creates a simplified summary of the organized data.
-   * The summary includes:
-   *   - Top-level Service Configurations ("Subscriber address" and "Service ID" as "LID")
-   *   - A list of Flexibility Points with their names, addresses (if found), positions,
-   *     remarks, and action sections (for headers including "Add", "Connect", or "Remove").
-   *
-   * @param {Object} organizedData - The organized JSON structure.
-   * @returns {Object} - The summary JSON data.
-   */
-  export function createSummaryJson(organizedData) {
-    const summary = {
-      "Subscriber address": organizedData["Service Configurations"][standardizeKey("Subscriber address:")] || "",
-      "LID": organizedData["Service Configurations"][standardizeKey("Service ID:")] || "",
-      "Flexibility Points": []
+/**
+ * Creates a simplified summary of the organized data.
+ * The summary includes:
+ *   - Top-level Service Configurations ("Subscriber address" and "Service ID" as "LID")
+ *   - A list of Flexibility Points with their names, addresses (if found), positions,
+ *     remarks, and action sections (for headers including "Add", "Connect", or "Remove").
+ *
+ * @param {Object} organizedData - The organized JSON structure.
+ * @returns {Object} - The summary JSON data.
+ */
+export function createSummaryJson(organizedData) {
+  const summary = {
+    "Subscriber address": organizedData["Service Configurations"][standardizeKey("Subscriber address:")] || "",
+    "LID": organizedData["Service Configurations"][standardizeKey("Service ID:")] || "",
+    "Flexibility Points": []
+  };
+
+  const fpEntries = organizedData["Site Operations"]["Flexibility Points"];
+  for (const fpTitle in fpEntries) {
+    const fpData = fpEntries[fpTitle];
+    const fpSummary = {
+      "name": fpTitle,
+      "address": "",
+      "position": "",
+      "remark": "",
+      "actions": {}
     };
-  
-    const fpEntries = organizedData["Site Operations"]["Flexibility Points"];
-    for (const fpTitle in fpEntries) {
-      const fpData = fpEntries[fpTitle];
-      const fpSummary = {
-        "name": fpTitle,
-        "address": "",
-        "position": "",
-        "remark": "",
-        "actions": {}
-      };
-  
-      // Search the info blocks for Address, Position, and Remark.
-      for (let i = 0; i < fpData.info.length; i++) {
-        const block = fpData.info[i];
-        const line = block.text || "";
-        if (line.startsWith("Address") && i + 1 < fpData.info.length) {
-          fpSummary["address"] = fpData.info[i + 1].text;
-        } else if (line.startsWith("Position") && i + 1 < fpData.info.length) {
-          fpSummary["position"] = fpData.info[i + 1].text;
-        } else if (line.startsWith("Remark") && i + 1 < fpData.info.length) {
-          fpSummary["remark"] = fpData.info[i + 1].text;
-        }
+
+    // Extract information from the info object
+    // Look for Address, Position, and Remark keys in the info section
+    const infoObj = fpData.info || {};
+    for (const key in infoObj) {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey.includes("address")) {
+        fpSummary["address"] = infoObj[key];
+      } else if (lowerKey.includes("position")) {
+        fpSummary["position"] = infoObj[key];
+      } else if (lowerKey.includes("remark")) {
+        fpSummary["remark"] = infoObj[key];
       }
-  
-      // Process state sections that contain action keywords.
-      for (const header in fpData.state_sections) {
-        if (header.includes("Add") || header.includes("Connect") || header.includes("Remove")) {
-          const actionContent = {};
-          const section = fpData.state_sections[header];
-          // Skip the header block and process the remaining blocks.
-          for (let i = 1; i < section.length; i++) {
-            const block = section[i];
-            const line = block.text || "";
-            if (line.trim().endsWith(':')) {
-              const key = standardizeKey(line);
-              const value = (i + 1 < section.length) ? section[i + 1].text : "";
-              actionContent[key] = value;
-            } else {
-              if (!actionContent["Notes"]) {
-                actionContent["Notes"] = line;
-              } else {
-                actionContent["Notes"] += "\n" + line;
-              }
-            }
-          }
-          fpSummary["actions"][header] = actionContent;
-        }
-      }
-  
-      // Remove any empty fields from the flexibility point summary.
-      for (const key in fpSummary) {
-        if (fpSummary[key] === "" || (typeof fpSummary[key] === "object" && Object.keys(fpSummary[key]).length === 0)) {
-          delete fpSummary[key];
-        }
-      }
-  
-      summary["Flexibility Points"].push(fpSummary);
     }
-  
-    return summary;
+
+    // Process state sections that contain action keywords.
+    for (const header in fpData.state_sections) {
+      if (header.includes("Add") || header.includes("Connect") || header.includes("Remove")) {
+        const actionContent = {};
+        const section = fpData.state_sections[header];
+        
+        // The section is now a key-value object, not an array of blocks
+        for (const key in section) {
+          actionContent[key] = section[key];
+        }
+        
+        // If no contents were found but we need a placeholder
+        if (Object.keys(actionContent).length === 0) {
+          actionContent["Notes"] = "No details provided";
+        }
+        
+        fpSummary["actions"][header] = actionContent;
+      }
+    }
+
+    // Remove any empty fields from the flexibility point summary.
+    for (const key in fpSummary) {
+      if (fpSummary[key] === "" || (typeof fpSummary[key] === "object" && Object.keys(fpSummary[key]).length === 0)) {
+        delete fpSummary[key];
+      }
+    }
+
+    summary["Flexibility Points"].push(fpSummary);
   }
-  
-  /**
-   * Main processing function to organize and summarize JSON data.
-   *
-   * This function expects the raw JSON data to have raw items list structure:
-   * [ ... rawItems ... ]
-   *
-   * @param {Object} jsonData - The raw JSON data.
-   * @returns {Object} - Processed summary data.
-   */
-  export function processJsonData(jsonData) {
-    // First, merge raw items into blocks.
-    const mergedBlocks = mergeRawItemsIntoBlocks(jsonData);
-    // Replace jsonData.content.blocks with our merged blocks.
-    jsonData = { content: { blocks: mergedBlocks } };
-    const organizedData = organizeJson(jsonData);
-    const summaryData = createSummaryJson(organizedData);
-    return summaryData;
-  }
+
+  return summary;
+}
+
+
+/**
+ * Main processing function to organize and summarize JSON data.
+ *
+ * This function expects the raw JSON data to have raw items list structure:
+ * [ ... rawItems ... ]
+ *
+ * @param {Object} jsonData - The raw JSON data.
+ * @returns {Object} - Processed summary data.
+ */
+export function processJsonData(jsonData) {
+  // First, merge raw items into blocks.
+  const mergedBlocks = mergeRawItemsIntoBlocks(jsonData);
+  // Replace jsonData.content.blocks with our merged blocks.
+  jsonData = { content: { blocks: mergedBlocks } };
+  const organizedData = organizeJson(jsonData);
+  const summaryData = createSummaryJson(organizedData);
+  return summaryData;
+}
   
