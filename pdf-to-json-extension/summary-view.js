@@ -19,7 +19,7 @@ export function renderSummaryView(summaryData, container) {
     
     // Service ID
     const lidDiv = document.createElement('div');
-    lidDiv.innerHTML = `<span>Service ID:</span> ${summaryData["LID"] || "Not specified"}`;
+    lidDiv.innerHTML = `<span>LID:</span> ${summaryData["LID"] || "Not specified"}`;
     basicInfo.appendChild(lidDiv);
     
     container.appendChild(basicInfo);
