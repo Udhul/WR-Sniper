@@ -235,7 +235,7 @@ function mergeRawItemsIntoBlocks(rawItems) {
     blocks.push(block);
   }
 
-  // Copy the result to the clipboard for debugging.
+  // (Debug) Copy the result to the clipboard for debugging.
   // if (navigator && navigator.clipboard) {
   //   navigator.clipboard.writeText(JSON.stringify(blocks, null, 2));
   // }
@@ -274,10 +274,10 @@ export function organizeJson(jsonData) {
   const scEndBlockNo = siteOpsIndex !== null ? siteOpsIndex : blocks.length;
   const scBlocks = blocks.slice(scStartBlockNo, scEndBlockNo);
 
-  // (Optional) Copy the result to the clipboard for debugging.
-  if (navigator && navigator.clipboard) {
-    navigator.clipboard.writeText(JSON.stringify(scBlocks, null, 2));
-  }
+  // (Debug) Copy the result to the clipboard for debugging.
+  // if (navigator && navigator.clipboard) {
+  //   navigator.clipboard.writeText(JSON.stringify(scBlocks, null, 2));
+  // }
 
   const lineKeys = ["Subscriber address:", "Service ID:"];
   const foundKeys = new Set();
@@ -306,10 +306,10 @@ export function organizeJson(jsonData) {
   // --- SITE OPERATIONS
   const soBlocks = blocks.slice(siteOpsIndex, blocks.length);
 
-  // (Optional) Copy the result to the clipboard for debugging.
-  if (navigator && navigator.clipboard) {
-    navigator.clipboard.writeText(JSON.stringify(soBlocks, null, 2));
-  }
+  // (Debug) Copy the result to the clipboard for debugging.
+  // if (navigator && navigator.clipboard) {
+  //   navigator.clipboard.writeText(JSON.stringify(soBlocks, null, 2));
+  // }
 
   // Find indices of blocks that begin with "Flexibility point"
   const fpIndices = [];
@@ -431,7 +431,7 @@ export function organizeJson(jsonData) {
     organizedData["Site Operations"]["Flexibility Points"][fpTitle] = organizedFP;
   }
 
-  // Copy the result to the clipboard for debugging.
+  // (Debug) Copy the result to the clipboard for debugging.
   if (navigator && navigator.clipboard) {
     navigator.clipboard.writeText(JSON.stringify(organizedData, null, 2));
   }
@@ -460,8 +460,15 @@ export function createSummaryJson(organizedData) {
   const fpEntries = organizedData["Site Operations"]["Flexibility Points"];
   for (const fpTitle in fpEntries) {
     const fpData = fpEntries[fpTitle];
+    
+    // Format fp name if it matches the pattern
+    let formattedFpName = fpTitle;
+    if (fpTitle.startsWith("(") && fpTitle.endsWith("-") && fpTitle.includes(")t")) {
+      formattedFpName = "Customer: " + fpTitle;
+    }
+    
     const fpSummary = {
-      "name": fpTitle,
+      "name": formattedFpName,
       "address": "",
       "position": "",
       "remark": "",
