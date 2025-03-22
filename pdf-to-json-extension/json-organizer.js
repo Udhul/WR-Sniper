@@ -33,6 +33,48 @@ function joinLines(lines) {
 
 
 /**
+ * Finds the index of a block whose text (joined text) contains the given keyword.
+ * Searches only the block's text.
+ *
+ * @param {Array} blocks - Array of blocks.
+ * @param {string} keyword - The keyword to search for.
+ * @param {boolean} [exactMatch=false] - If true, require an exact match.
+ * @returns {number|null} - The index of the matching block, or null if not found.
+ */
+function findBlockNumWithKeyword(blocks, keyword, exactMatch = false) {
+  for (let i = 0; i < blocks.length; i++) {
+    const text = blocks[i].text || "";
+    if (exactMatch) {
+      if (text.trim() === keyword) return i;
+    } else {
+      if (text.includes(keyword)) return i;
+    }
+  }
+  return null;
+}
+
+
+/**
+ * Processes an address string to remove leading numbers.
+ * If the address starts with a number followed by a space, it trims that part.
+ * 
+ * @param {string} address - The address to process
+ * @returns {string} - The processed address
+ */
+function processAddress(address) {
+  if (!address || typeof address !== 'string') return address;
+  
+  // Match if it starts with digits followed by a space
+  const match = address.match(/^\d+\s+(.+)$/);
+  if (match) {
+    // Return everything after the leading number and space
+    return match[1];
+  }
+  return address;
+}
+
+
+/**
  * Merges raw PDF text items into blocks.
  *
  * - Discards items with empty or whitespace-only "str".
@@ -203,28 +245,6 @@ function mergeRawItemsIntoBlocks(rawItems) {
 
 
 /**
- * Finds the index of a block whose text (joined text) contains the given keyword.
- * Searches only the block's text.
- *
- * @param {Array} blocks - Array of blocks.
- * @param {string} keyword - The keyword to search for.
- * @param {boolean} [exactMatch=false] - If true, require an exact match.
- * @returns {number|null} - The index of the matching block, or null if not found.
- */
-function findBlockNumWithKeyword(blocks, keyword, exactMatch = false) {
-  for (let i = 0; i < blocks.length; i++) {
-    const text = blocks[i].text || "";
-    if (exactMatch) {
-      if (text.trim() === keyword) return i;
-    } else {
-      if (text.includes(keyword)) return i;
-    }
-  }
-  return null;
-}
-
-
-/**
  * Organizes the raw blocks into a structured JSON object.
  *
  * The structure is as follows:
@@ -263,13 +283,19 @@ export function organizeJson(jsonData) {
   const foundKeys = new Set();
 
   // For each block, if its text contains one of the keys and the next block exists,
-  // then use the next block’s text as the value.
+  // then use the next block's text as the value.
   for (let i = 0; i < scBlocks.length; i++) {
     const block = scBlocks[i];
     for (const key of lineKeys) {
       if (block.text && block.text.includes(key)) {
         if (i + 1 < scBlocks.length) {
-          const value = scBlocks[i + 1].text;
+          let value = scBlocks[i + 1].text;
+          
+          // Process subscriber address to remove leading numbers
+          if (key.toLowerCase().includes("address")) {
+            value = processAddress(value);
+          }
+          
           organizedData["Service Configurations"][standardizeKey(key)] = value;
           foundKeys.add(key);
         }
@@ -412,7 +438,7 @@ export function organizeJson(jsonData) {
 
   return organizedData;
 }
-  
+
 
 /**
  * Creates a simplified summary of the organized data.
@@ -451,7 +477,8 @@ export function createSummaryJson(organizedData) {
       
       const lowerKey = key.toLowerCase();
       if (lowerKey.includes("address")) {
-        fpSummary["address"] = infoObj[key];
+        // Process address to remove leading numbers
+        fpSummary["address"] = processAddress(infoObj[key]);
       } else if (lowerKey.includes("position")) {
         fpSummary["position"] = infoObj[key];
       } else if (lowerKey.includes("remark")) {
@@ -469,7 +496,13 @@ export function createSummaryJson(organizedData) {
         for (const key in section) {
           // Skip if standardized key is "Service"
           if (standardizeKey(key) === "Service") continue;
-          actionContent[key] = section[key];
+          
+          // Process address values in state sections
+          if (standardizeKey(key) === "Address" || standardizeKey(key) === "To address") {
+            actionContent[key] = processAddress(section[key]);
+          } else {
+            actionContent[key] = section[key];
+          }
         }
         
         // If no contents were found but we need a placeholder
