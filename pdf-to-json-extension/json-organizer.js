@@ -463,7 +463,7 @@ export function createSummaryJson(organizedData) {
     
     // Format fp name if it matches the pattern
     let formattedFpName = fpTitle;
-    if (fpTitle.startsWith("(") && fpTitle.endsWith("-") && fpTitle.includes(")t")) {
+    if (fpTitle.startsWith("(") && fpTitle.endsWith("-") && fpTitle.includes(")t") && /\d{4,}/.test(fpTitle)) {
       formattedFpName = "Customer: " + fpTitle;
     }
     
